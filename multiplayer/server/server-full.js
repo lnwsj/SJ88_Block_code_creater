@@ -37,6 +37,8 @@ function leaveRoom(playerId) {
   if (!p) return;
   room.players.delete(playerId);
   broadcastRoom(room, { type: 'player_left', id: playerId });
+  // Also notify that their bot has stopped (cleanup)
+  broadcastRoom(room, { type: 'bot_stop', id: playerId });
   console.log(`[${room.code}] ${p.name} left (${room.players.size} left)`);
   if (room.players.size === 0) {
     rooms.delete(room.code);
@@ -153,6 +155,22 @@ wss.on('connection', (ws) => {
     else if (t === 'chat' && myRoom) {
       broadcastRoom(myRoom, { type: 'chat', id: playerId, name: msg.name, msg: msg.msg, color: msg.color }, playerId);
       send(ws, { type: 'chat', id: playerId, name: msg.name, msg: msg.msg, color: msg.color });
+    }
+    else if (t === 'bot' && myRoom) {
+      // Broadcast bot state to all other players in room
+      const p = myRoom.players.get(playerId);
+      broadcastRoom(myRoom, {
+        type: 'bot',
+        id: playerId,
+        name: p?.name || 'Player',
+        color: p?.color || '#ff8800',
+        x: msg.x, y: msg.y, z: msg.z, yaw: msg.yaw,
+        visible: msg.visible,
+        say: msg.say,
+      }, playerId);
+    }
+    else if (t === 'bot_stop' && myRoom) {
+      broadcastRoom(myRoom, { type: 'bot_stop', id: playerId }, playerId);
     }
     else if (t === 'ping') {
       send(ws, { type: 'pong', t: msg.t });

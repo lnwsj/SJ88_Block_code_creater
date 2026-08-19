@@ -193,6 +193,14 @@
   .code-add-script{margin-top:8px;padding:8px;background:rgba(255,255,255,.05);border-radius:4px;display:flex;flex-direction:column;gap:4px}
   .code-add-hat{background:#3a3a4a;color:#fff;border:0;padding:6px 10px;font-size:12px;font-weight:600;border-radius:4px;cursor:pointer;text-align:left}
   .code-add-hat:hover{background:#4a4a5a}
+  .code-script-export{background:#4a9eff;color:#000;border:0;width:22px;height:20px;border-radius:3px;cursor:pointer;font-size:10px;font-weight:700}
+  .code-script-export:hover{background:#5aafff}
+  .code-block-row.focused{margin-left:0;padding:2px;border-radius:4px;background:rgba(245,158,11,.08)}
+  .code-cblock-head:hover{opacity:.85}
+  .code-export-modal{position:absolute;inset:0;background:rgba(0,0,0,.85);z-index:140;display:none;align-items:center;justify-content:center}
+  .code-export-modal.show{display:flex}
+  .code-export-modal .code-export-panel{background:#1a1a2e;border:1px solid #f59e0b;border-radius:8px;padding:18px;width:560px;max-width:90vw}
+  .code-export-modal textarea{width:100%;height:200px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#7cda24;padding:8px;border-radius:4px;font-family:monospace;font-size:11px;resize:vertical}
   .craft-panel{background:rgba(20,20,30,.95);border:2px solid var(--accent2);border-radius:10px;padding:20px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto}
   .craft-panel h2{margin:0 0 10px;color:var(--accent2)}
   .craft-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
@@ -373,7 +381,40 @@
     <div class="code-workspace-wrap">
       <div id="code-workspace">
         <div id="code-scripts"></div>
+        <div style="margin-top:14px;display:flex;gap:6px;flex-wrap:wrap">
+          <button id="code-export-all" style="background:#4a9eff;color:#000;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">📤 Export ทั้งหมด</button>
+          <button id="code-import-btn" style="background:#7cda24;color:#000;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">📥 Import</button>
+          <button id="code-clear-all" style="background:#ef4444;color:#fff;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">🗑 ลบทั้งหมด</button>
+        </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Code Export modal -->
+<div id="code-export-modal" class="code-export-modal">
+  <div class="code-export-panel">
+    <h3 style="color:#f59e0b;margin:0 0 10px">📤 Export Script</h3>
+    <p style="color:#888;font-size:12px;margin:0 0 10px">คัดลอก JSON ด้านล่างนี้ (Ctrl+A, Ctrl+C) เพื่อแชร์</p>
+    <textarea id="code-export-textarea" readonly></textarea>
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <button id="code-export-copy" style="background:#7cda24;color:#000;border:0;padding:6px 12px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">📋 Copy</button>
+      <button id="code-export-close" style="background:#666;color:#fff;border:0;padding:6px 12px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">ปิด</button>
+    </div>
+  </div>
+</div>
+
+<!-- Code Import modal -->
+<div id="code-import-modal" class="code-export-modal">
+  <div class="code-export-panel">
+    <h3 style="color:#7cda24;margin:0 0 10px">📥 Import Script</h3>
+    <p style="color:#888;font-size:12px;margin:0 0 10px">วาง JSON ด้านล่างนี้ หรือใส่ URL</p>
+    <input type="text" id="code-import-url" placeholder="URL ของ script.json (ไม่บังคับ)" style="width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:6px 10px;border-radius:4px;font-size:12px;margin-bottom:6px" />
+    <textarea id="code-import-textarea" placeholder='{"id":"my_script","name":"My Script","version":"1.0","format":"minicraft_code_v1","scripts":[...]}' style="width:100%;height:150px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:6px;border-radius:4px;font-family:monospace;font-size:11px;resize:vertical"></textarea>
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+      <button id="code-import-merge" style="background:#7cda24;color:#000;border:0;padding:6px 12px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">📥 Import (merge)</button>
+      <button id="code-import-replace" style="background:#f59e0b;color:#000;border:0;padding:6px 12px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">🔄 Replace ทั้งหมด</button>
+      <button id="code-import-close" style="background:#666;color:#fff;border:0;padding:6px 12px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">ยกเลิก</button>
     </div>
   </div>
 </div>
@@ -4021,6 +4062,7 @@ let mp = {
   myColor: '#4a9eff',
   myName: 'Player',
   remotePlayers: new Map(), // id -> {name, x, y, z, yaw, pitch, hp, color, lastUpdate}
+  remoteBots: new Map(),    // id -> {ownerName, x, y, z, yaw, visible, sayText, sayUntil, color}
   pendingBlockChanges: [],
   reconnectTimer: null,
   connectedAt: 0,
@@ -4074,6 +4116,7 @@ function connectMP() {
     mp.roomCode = null;
     mp.myId = null;
     mp.remotePlayers.clear();
+    if (mp.remoteBots) mp.remoteBots.clear();
     updateMPUI();
     console.log('MP closed', ev.code, ev.reason);
     updateMPStatus('ขาดการเชื่อมต่อ — กำลังลองใหม่...', '#ef4444');
@@ -4140,6 +4183,32 @@ function handleMPMessage(msg) {
     p.fly = msg.fly;
     p.lastUpdate = Date.now();
   }
+  else if (t === 'bot') {
+    // Remote bot update (code editor agent from another player)
+    if (!mp.remoteBots) mp.remoteBots = new Map();
+    let b = mp.remoteBots.get(msg.id);
+    if (!b) {
+      b = { id: msg.id, ownerName: msg.name || 'Player', color: msg.color || '#ff8800' };
+      mp.remoteBots.set(msg.id, b);
+      addChat('System', '🤖 Bot ของ ' + (msg.name || 'Player') + ' ปรากฏตัว', '#888');
+    }
+    b.x = msg.x; b.y = msg.y; b.z = msg.z;
+    b.yaw = msg.yaw; b.visible = msg.visible;
+    if (msg.say) {
+      b.sayText = msg.say;
+      b.sayUntil = Date.now() + 2000;
+    }
+    b.lastUpdate = Date.now();
+  }
+  else if (t === 'bot_stop') {
+    if (mp.remoteBots) {
+      const b = mp.remoteBots.get(msg.id);
+      if (b) {
+        addChat('System', '🤖 Bot ของ ' + (b.ownerName || 'Player') + ' หยุดทำงาน', '#888');
+        mp.remoteBots.delete(msg.id);
+      }
+    }
+  }
   else if (t === 'block_change') {
     // Apply remote block change
     if (inBounds(msg.x, msg.y, msg.z)) {
@@ -4201,6 +4270,15 @@ function sendMoveThrottled() {
     yaw: player.yaw, pitch: player.pitch,
     hp: player.hp, fly: player.flyMode,
   });
+  // Also send bot state if agent is visible
+  if (agent.visible) {
+    sendMP({
+      type: 'bot',
+      x: agent.x, y: agent.y, z: agent.z,
+      yaw: agent.yaw, visible: agent.visible,
+      say: agent.sayText && agent.sayUntil > performance.now() ? agent.sayText : null,
+    });
+  }
 }
 
 // UI Handlers
@@ -4291,6 +4369,34 @@ function renderAgent() {
   // Floating "say" text
   if (agent.sayUntil && performance.now() < agent.sayUntil) {
     drawPlayerName('💬 ' + agent.sayText, agent.x, agent.y + 2.4, agent.z);
+  }
+  // Render remote bots too
+  renderRemoteBots();
+}
+
+const _remoteBotMeshes = new Map(); // id -> {meshData, glBuf}
+function renderRemoteBots() {
+  if (!mp.remoteBots) return;
+  for (const [id, b] of mp.remoteBots) {
+    if (!b.visible) continue;
+    let cached = _remoteBotMeshes.get(id);
+    if (!cached) {
+      // Pick color based on owner's color (use a complementary tint)
+      const color = b.color || '#ff8800';
+      cached = { meshData: buildPlayerBoxMesh(color), glBuf: null };
+      cached.glBuf = createGlBufferFor(cached.meshData);
+      _remoteBotMeshes.set(id, cached);
+    }
+    const mvp = mat4Mult(getCurrentProjView(), mat4Translate(b.x - 0.3, b.y, b.z - 0.3));
+    drawPlayerMesh(cached.glBuf, cached.meshData, mvp);
+    drawPlayerName('🤖 ' + (b.ownerName || 'Bot'), b.x, b.y + 1.9, b.z);
+    if (b.sayUntil && Date.now() < b.sayUntil) {
+      drawPlayerName('💬 ' + b.sayText, b.x, b.y + 2.4, b.z);
+    }
+  }
+  // Cleanup stale (player disconnected)
+  for (const id of _remoteBotMeshes.keys()) {
+    if (!mp.remoteBots.has(id)) _remoteBotMeshes.delete(id);
   }
 }
 
@@ -5245,6 +5351,7 @@ function closeCodeEditor() {
 }
 
 let currentScript = null; // currently selected script (hat block)
+let currentFocus = null;  // currently focused C-block (for adding nested children)
 
 function renderCodeEditor() {
   const list = document.getElementById('code-blocks-list');
@@ -5312,7 +5419,10 @@ function renderScripts() {
     html += `<div class="code-script ${i===currentScript?.__idx?'active':''}" data-idx="${i}">
       <div class="code-script-head">
         <span class="code-block" style="--bc:${BLOCK_CATEGORIES[def.category].color}">${def.label}</span>
-        <button class="code-script-del" data-idx="${i}">✕</button>
+        <div style="display:flex;gap:4px">
+          <button class="code-script-export" data-idx="${i}" title="Export script นี้">📤</button>
+          <button class="code-script-del" data-idx="${i}" title="ลบ">✕</button>
+        </div>
       </div>
       ${renderBlockTree(s, s)}
     </div>`;
@@ -5324,6 +5434,14 @@ function renderScripts() {
     <button data-hat="on_chat" class="code-add-hat">💬 พูด</button>
     <button data-hat="on_key" class="code-add-hat">⌨ กดปุ่ม</button>
   </div>`;
+  // Show current focus indicator
+  if (currentFocus) {
+    const focusDef = BLOCK_DEFS[currentFocus.type];
+    html += `<div id="code-focus-indicator" style="margin-top:8px;padding:6px 10px;background:rgba(245,158,11,.15);border:1px solid #f59e0b;border-radius:4px;font-size:11px;display:flex;align-items:center;gap:8px">
+      <span>📍 กำลังเพิ่มบล็อกภายใน: <b style="color:#f59e0b">${focusDef?.label || currentFocus.type}</b></span>
+      <button id="code-focus-out" style="background:#666;color:#fff;border:0;padding:2px 8px;border-radius:3px;cursor:pointer;font-size:10px">ออก</button>
+    </div>`;
+  }
   wrap.innerHTML = html;
   // Hook delete
   wrap.querySelectorAll('.code-script-del').forEach(b => {
@@ -5335,11 +5453,34 @@ function renderScripts() {
       renderScripts();
     });
   });
+  // Hook export
+  wrap.querySelectorAll('.code-script-export').forEach(b => {
+    b.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = parseInt(b.dataset.idx);
+      const s = savedScripts[idx];
+      const exportData = {
+        id: 'code_' + Date.now(),
+        name: scriptName || 'My Program',
+        version: '1.0',
+        format: 'minicraft_code_v1',
+        scripts: [cleanBlockForExport(s)],
+      };
+      const json = JSON.stringify(exportData, null, 2);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(json).then(() => {
+          toast('📤 Export script — คัดลอกไปยัง clipboard');
+        }).catch(() => promptExport(json));
+      } else {
+        promptExport(json);
+      }
+    });
+  });
   // Hook add hat
   wrap.querySelectorAll('.code-add-hat').forEach(b => {
     b.addEventListener('click', () => {
       const type = b.dataset.hat;
-      savedScripts.push({ id: Date.now() + '_' + Math.random().toString(36).slice(2), type, params: {}, next: null, children: null });
+      savedScripts.push({ id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), type, params: paramDefaults(BLOCK_DEFS[type]), next: null, children: null });
       saveScripts();
       renderScripts();
     });
@@ -5359,14 +5500,42 @@ function renderScripts() {
     });
     input.addEventListener('click', e => e.stopPropagation());
   });
-  // Block-level click: focus this script
+  // Block-level click: focus this script (and clear C-block focus)
   wrap.querySelectorAll('.code-script').forEach(s => {
     s.addEventListener('click', () => {
       currentScript = savedScripts[parseInt(s.dataset.idx)];
       currentScript.__idx = parseInt(s.dataset.idx);
+      currentFocus = null;  // exit C-block focus
       wrap.querySelectorAll('.code-script').forEach(x => x.classList.toggle('active', parseInt(x.dataset.idx) === currentScript.__idx));
+      renderScripts();
     });
   });
+  // C-block click: focus it for nested children
+  wrap.querySelectorAll('.code-cblock-head').forEach(c => {
+    c.addEventListener('click', e => {
+      e.stopPropagation();
+      const blockId = c.dataset.blockId;
+      const block = findBlockById(savedScripts, blockId);
+      if (block) {
+        currentFocus = block;
+        currentScript = findScriptOfBlock(savedScripts, block);
+        renderScripts();
+      }
+    });
+  });
+  // Focus-out button
+  document.getElementById('code-focus-out')?.addEventListener('click', () => {
+    currentFocus = null;
+    renderScripts();
+  });
+}
+
+function findScriptOfBlock(scripts, block) {
+  // Find which hat-block script contains this block
+  for (const s of scripts) {
+    if (walkBlocks(s, b => b === block)) return s;
+  }
+  return null;
 }
 
 function findBlockById(scripts, id) {
@@ -5408,8 +5577,13 @@ function renderBlockNode(block) {
   const def = BLOCK_DEFS[block.type];
   if (!def) return '';
   const cat = BLOCK_CATEGORIES[def.category];
-  let html = `<div class="code-block-row" data-block-id="${block.id}">
-    <div class="code-block" style="--bc:${cat.color}">`;
+  const isFocused = currentFocus === block;
+  let html = `<div class="code-block-row ${isFocused ? 'focused' : ''}" data-block-id="${block.id}">`;
+  // For C-blocks, wrap the head in a clickable div for focus
+  if (def.hasChildren) {
+    html += `<div class="code-cblock-head" data-block-id="${block.id}" style="cursor:pointer;${isFocused ? 'outline:2px solid #f59e0b;outline-offset:1px;border-radius:5px' : ''}" title="คลิกเพื่อเพิ่มบล็อกภายใน">`;
+  }
+  html += `<div class="code-block" style="--bc:${cat.color}">`;
   html += `<span class="code-block-label">${def.label}</span>`;
   if (block.params) {
     for (const p of def.params) {
@@ -5419,13 +5593,14 @@ function renderBlockNode(block) {
   html += `<button class="code-block-del" data-block-id="${block.id}">✕</button>`;
   html += `</div>`;
   if (def.hasChildren) {
+    html += `</div>`; // close code-cblock-head
     html += `<div class="code-block-children" data-parent-id="${block.id}">`;
     if (block.children && block.children.length) {
       for (const c of block.children) {
         html += renderBlockNode(c);
       }
     } else {
-      html += `<div class="code-block-empty">ลาก/คลิกบล็อกเพื่อใส่</div>`;
+      html += `<div class="code-block-empty">${isFocused ? '👆 คลิกบล็อกใน palette เพื่อเพิ่มที่นี่' : 'คลิกที่บล็อกด้านบนเพื่อเพิ่มข้างใน'}</div>`;
     }
     html += `</div>`;
   }
@@ -5444,27 +5619,114 @@ function addBlockToCurrent(type) {
     renderScripts();
     return;
   }
-  // Find currently focused script (or first one)
-  let target = currentScript || savedScripts[0];
+  // Determine target for new block:
+  // - If currentFocus points to a C-block, add to its children
+  // - Else if currentScript is a script (hat block), add to end of its main chain
+  let target = currentFocus;
+  if (!target) target = currentScript || savedScripts[0];
   if (!target) {
     // No script, create on_start first
     savedScripts.push({ id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), type: 'on_start', params: {}, next: null, children: null });
     target = savedScripts[0];
+    currentScript = target;
   }
   const newBlock = { id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), type, params: paramDefaults(def), next: null, children: def.hasChildren ? [] : null };
-  // If C-block and a C-block is currently selected/focused, add to its children
-  // For simplicity: append to end of main chain
-  let last = target;
-  while (last.next) last = last.next;
-  if (last.type === 'on_chat' || last.type === 'on_key' || last.type === 'on_start') {
+  // If target is a script (hat), add to end of main chain
+  const targetDef = BLOCK_DEFS[target.type];
+  if (targetDef && targetDef.kind === 'hat') {
+    let last = target;
+    while (last.next) last = last.next;
     last.next = newBlock;
+  } else if (targetDef && targetDef.hasChildren) {
+    // Target is a C-block, add to its children
+    if (!target.children) target.children = [];
+    target.children.push(newBlock);
+    // If new block is a C-block, focus it for further nesting
+    if (newBlock.type && BLOCK_DEFS[newBlock.type].hasChildren) {
+      currentFocus = newBlock;
+    } else {
+      // Stay focused on this C-block
+      currentFocus = target;
+    }
   } else {
-    // Walk through C-blocks
+    // Stack block in chain - append after it
+    let last = target;
     while (last.next) last = last.next;
     last.next = newBlock;
   }
   saveScripts();
   renderScripts();
+}
+
+// Export/Import scripts
+function exportScripts() {
+  if (savedScripts.length === 0) {
+    toast('⚠ ไม่มี script ให้ export');
+    return;
+  }
+  const exportData = {
+    id: 'code_' + Date.now(),
+    name: scriptName || 'My Program',
+    version: '1.0',
+    format: 'minicraft_code_v1',
+    scripts: savedScripts.map(cleanBlockForExport),
+  };
+  const json = JSON.stringify(exportData, null, 2);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(json).then(() => {
+      toast('📤 Export สำเร็จ — คัดลอก JSON ไปยัง clipboard');
+    }).catch(() => promptExport(json));
+  } else {
+    promptExport(json);
+  }
+}
+
+function promptExport(json) {
+  // Fallback: show modal
+  document.getElementById('code-export-textarea').value = json;
+  document.getElementById('code-export-modal').classList.add('show');
+}
+
+function importScripts(jsonStr, mode = 'merge') {
+  let data;
+  try { data = JSON.parse(jsonStr); } catch(e) {
+    toast('❌ JSON ไม่ถูกต้อง: ' + e.message);
+    return false;
+  }
+  if (!data || !Array.isArray(data.scripts)) {
+    toast('❌ ไม่พบ scripts array');
+    return false;
+  }
+  if (mode === 'replace') {
+    savedScripts = [];
+  }
+  for (const s of data.scripts) {
+    // Assign new IDs to avoid conflicts
+    const cloned = JSON.parse(JSON.stringify(s));
+    reassignIds(cloned);
+    savedScripts.push(cloned);
+  }
+  saveScripts();
+  renderScripts();
+  toast('📥 Import สำเร็จ — เพิ่ม ' + data.scripts.length + ' script');
+  return true;
+}
+
+function reassignIds(block) {
+  block.id = 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6) + Math.random().toString(36).slice(2,4);
+  if (block.next) reassignIds(block.next);
+  if (Array.isArray(block.children)) {
+    for (const c of block.children) reassignIds(c);
+  }
+}
+
+function cleanBlockForExport(block) {
+  // Remove internal __idx if present
+  const b = { ...block };
+  delete b.__idx;
+  if (b.next) b.next = cleanBlockForExport(b.next);
+  if (b.children) b.children = b.children.map(cleanBlockForExport);
+  return b;
 }
 
 function paramDefaults(def) {
@@ -5515,6 +5777,10 @@ function stopProgram() {
     executor = null;
   }
   agent.active = false;
+  // Notify other players
+  if (mp.connected && mp.roomCode) {
+    sendMP({ type: 'bot_stop' });
+  }
   setTimeout(() => { agent.visible = false; }, 1000);
   toast('⏹ หยุด script แล้ว');
 }
@@ -5549,7 +5815,79 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('code-run')?.addEventListener('click', runProgram);
   document.getElementById('code-stop')?.addEventListener('click', stopProgram);
   document.getElementById('code-load-sample')?.addEventListener('click', loadSampleProgram);
+  document.getElementById('code-export-all')?.addEventListener('click', exportScripts);
+  document.getElementById('code-import-btn')?.addEventListener('click', () => {
+    document.getElementById('code-import-modal').classList.add('show');
+  });
+  document.getElementById('code-import-close')?.addEventListener('click', () => {
+    document.getElementById('code-import-modal').classList.remove('show');
+  });
+  document.getElementById('code-import-merge')?.addEventListener('click', () => {
+    const url = document.getElementById('code-import-url').value.trim();
+    const json = document.getElementById('code-import-textarea').value.trim();
+    if (url) {
+      importScriptsFromUrl(url, 'merge');
+    } else if (json) {
+      if (importScripts(json, 'merge')) {
+        document.getElementById('code-import-modal').classList.remove('show');
+        document.getElementById('code-import-textarea').value = '';
+      }
+    } else {
+      toast('⚠ วาง JSON หรือใส่ URL');
+    }
+  });
+  document.getElementById('code-import-replace')?.addEventListener('click', () => {
+    if (!confirm('ลบ scripts เดิมทั้งหมดแล้วแทนที่ด้วยของใหม่?')) return;
+    const url = document.getElementById('code-import-url').value.trim();
+    const json = document.getElementById('code-import-textarea').value.trim();
+    if (url) {
+      importScriptsFromUrl(url, 'replace');
+    } else if (json) {
+      if (importScripts(json, 'replace')) {
+        document.getElementById('code-import-modal').classList.remove('show');
+        document.getElementById('code-import-textarea').value = '';
+      }
+    } else {
+      toast('⚠ วาง JSON หรือใส่ URL');
+    }
+  });
+  document.getElementById('code-export-close')?.addEventListener('click', () => {
+    document.getElementById('code-export-modal').classList.remove('show');
+  });
+  document.getElementById('code-export-copy')?.addEventListener('click', () => {
+    const ta = document.getElementById('code-export-textarea');
+    ta.select();
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(ta.value).then(() => toast('📋 คัดลอกแล้ว'));
+    } else {
+      document.execCommand('copy');
+      toast('📋 คัดลอกแล้ว');
+    }
+  });
+  document.getElementById('code-clear-all')?.addEventListener('click', () => {
+    if (!confirm('ลบ scripts ทั้งหมด?')) return;
+    savedScripts = [];
+    saveScripts();
+    renderScripts();
+    toast('🗑 ลบ scripts ทั้งหมด');
+  });
 });
+
+async function importScriptsFromUrl(url, mode) {
+  toast('⏳ กำลังโหลด...');
+  try {
+    const res = await fetch(url);
+    if (!res.ok) { toast('❌ HTTP ' + res.status); return; }
+    const text = await res.text();
+    if (importScripts(text, mode)) {
+      document.getElementById('code-import-modal').classList.remove('show');
+      document.getElementById('code-import-textarea').value = '';
+      document.getElementById('code-import-url').value = '';
+    }
+  } catch(e) {
+    toast('❌ โหลดไม่ได้: ' + e.message);
+  }
+}
 
 function loadSampleProgram() {
   savedScripts = [
