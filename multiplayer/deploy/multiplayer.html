@@ -158,49 +158,116 @@
   #mods-list .builtin-tag{background:rgba(124,218,36,.2);color:#7cda24;padding:1px 6px;border-radius:3px;font-size:9px;margin-left:6px}
 
   /* Code Editor */
-  #code-modal{position:absolute;inset:0;background:rgba(0,0,0,.92);z-index:130;display:none;color:#fff;font-family:'Inter',sans-serif}
+  #code-modal{position:absolute;inset:0;background:rgba(0,0,0,.92);z-index:130;display:none;color:#fff;font-family:'Inter','Noto Sans Thai',sans-serif}
   #code-modal.show{display:flex;flex-direction:column}
-  #code-modal .code-top{background:linear-gradient(90deg,#1a1a2e,#16213e);padding:12px 20px;display:flex;align-items:center;gap:10px;border-bottom:2px solid #f59e0b;flex-shrink:0}
-  #code-modal .code-top h2{margin:0;font-size:18px;color:#f59e0b;flex:1}
-  #code-modal .code-top button{background:#3a3a4a;color:#fff;border:0;padding:8px 16px;font-size:13px;font-weight:700;border-radius:4px;cursor:pointer}
-  #code-modal .code-top button:hover{background:#4a4a5a}
-  #code-modal .code-top .code-run{background:#7cda24;color:#000}
-  #code-modal .code-top .code-stop{background:#ef4444;color:#fff}
-  #code-modal .code-top .code-sample{background:#4a9eff;color:#000}
-  #code-modal .code-body{flex:1;display:grid;grid-template-columns:220px 1fr;overflow:hidden}
-  #code-blocks-list{background:rgba(20,20,30,.8);border-right:1px solid rgba(255,255,255,.1);overflow-y:auto;padding:8px}
-  .code-cat{margin-bottom:12px}
-  .code-cat-name{font-size:11px;font-weight:700;color:#aaa;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:2px}
-  .code-pal-block{margin-bottom:3px;cursor:pointer}
-  .code-pal-block .code-block{font-size:11px;padding:4px 8px}
-  .code-workspace-wrap{overflow-y:auto;padding:14px;background:rgba(0,0,0,.3)}
-  #code-workspace{min-height:100%}
-  #code-scripts{display:flex;flex-direction:column;gap:10px}
-  .code-script{background:rgba(40,40,60,.5);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:8px;cursor:pointer}
-  .code-script.active{border-color:#f59e0b;background:rgba(245,158,11,.1)}
-  .code-script-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
-  .code-script-del{background:#ef4444;color:#fff;border:0;width:20px;height:20px;border-radius:3px;cursor:pointer;font-size:12px}
-  .code-block-row{margin-bottom:2px;display:flex;flex-direction:column}
-  .code-block{--bc:#4c97ff;background:var(--bc);color:#fff;padding:6px 10px;border-radius:5px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:24px;box-shadow:0 2px 4px rgba(0,0,0,.3)}
-  .code-block-label{white-space:nowrap}
-  .code-block .code-param{background:rgba(255,255,255,.95);color:#222;border:1px solid rgba(0,0,0,.2);border-radius:3px;padding:2px 6px;font-size:11px;font-weight:500;min-width:50px;max-width:120px}
-  .code-block .code-param.num{width:60px}
+  /* === Header === */
+  #code-modal .code-top{background:linear-gradient(90deg,#0f0f1e 0%,#1f1438 50%,#0f0f1e 100%);padding:14px 24px;display:flex;align-items:center;gap:14px;border-bottom:2px solid #f59e0b;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,.5);position:relative;z-index:2}
+  #code-modal .code-top::after{content:'';position:absolute;left:0;right:0;bottom:-2px;height:2px;background:linear-gradient(90deg,transparent,#f59e0b,transparent);opacity:.6}
+  #code-modal .code-top h2{margin:0;font-size:20px;font-weight:800;background:linear-gradient(45deg,#f59e0b,#fbbf24,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:.5px;text-shadow:0 0 20px rgba(245,158,11,.3);flex-shrink:0}
+  #code-modal .code-top .code-stats{font-size:11px;color:#888;display:flex;gap:14px;padding:0 8px;border-left:1px solid rgba(255,255,255,.1);border-right:1px solid rgba(255,255,255,.1);height:24px;align-items:center}
+  #code-modal .code-top .code-stats .stat{display:flex;align-items:center;gap:4px}
+  #code-modal .code-top .code-stats .stat-v{color:#f59e0b;font-weight:700}
+  #code-modal .code-top .code-btn{border:0;padding:9px 16px;font-size:12px;font-weight:700;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s;text-transform:uppercase;letter-spacing:.5px;font-family:inherit}
+  #code-modal .code-top .code-btn:hover{transform:translateY(-1px);box-shadow:0 4px 8px rgba(0,0,0,.3)}
+  #code-modal .code-top .code-btn:active{transform:translateY(0)}
+  #code-modal .code-top .code-run{background:linear-gradient(180deg,#a4f040,#7cda24);color:#000;box-shadow:0 2px 0 #5ba818}
+  #code-modal .code-top .code-run:hover{background:linear-gradient(180deg,#b4ff50,#8cea34)}
+  #code-modal .code-top .code-stop{background:linear-gradient(180deg,#ff6b6b,#ef4444);color:#fff;box-shadow:0 2px 0 #b91c1c}
+  #code-modal .code-top .code-sample{background:linear-gradient(180deg,#7c3aed,#a855f7);color:#fff;box-shadow:0 2px 0 #6b21a8}
+  #code-modal .code-top .code-close{background:linear-gradient(180deg,#555,#333);color:#fff;box-shadow:0 2px 0 #111}
+  /* === Body === */
+  #code-modal .code-body{flex:1;display:grid;grid-template-columns:240px 1fr;overflow:hidden;background:#0a0a14}
+  /* === Palette === */
+  #code-blocks-list{background:linear-gradient(180deg,#10101e 0%,#15152a 100%);border-right:1px solid rgba(245,158,11,.15);overflow-y:auto;padding:14px 12px;box-shadow:inset -4px 0 8px rgba(0,0,0,.3)}
+  .code-cat{margin-bottom:18px}
+  .code-cat-name{font-size:10px;font-weight:800;color:var(--cat-color,#f59e0b);margin-bottom:8px;text-transform:uppercase;letter-spacing:2px;display:flex;align-items:center;gap:8px}
+  .code-cat-name::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--cat-color,#f59e0b),transparent);opacity:.4}
+  .code-pal-block{margin-bottom:5px;cursor:grab;transition:all .15s}
+  .code-pal-block:hover{transform:translateX(3px);filter:brightness(1.1)}
+  .code-pal-block:active{cursor:grabbing}
+  .code-pal-block .code-block{font-size:12px;padding:7px 10px;box-shadow:0 2px 0 rgba(0,0,0,.3),0 3px 6px rgba(0,0,0,.2);position:relative;overflow:hidden}
+  .code-pal-block .code-block::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:rgba(255,255,255,.25);border-radius:6px 0 0 6px}
+  .code-pal-block .code-block::after{content:'＋';position:absolute;right:6px;top:50%;transform:translateY(-50%);opacity:0;font-size:14px;font-weight:700;color:#fff;transition:opacity .15s}
+  .code-pal-block:hover .code-block::after{opacity:.7}
+  /* === Workspace === */
+  .code-workspace-wrap{background:radial-gradient(ellipse at top,#1a1a2e 0%,#0a0a14 70%);overflow-y:auto;padding:20px 24px 80px;position:relative}
+  .code-workspace-wrap::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle at 20% 30%,rgba(245,158,11,.04) 0%,transparent 50%),radial-gradient(circle at 80% 70%,rgba(124,218,36,.04) 0%,transparent 50%);pointer-events:none}
+  #code-workspace{min-height:100%;position:relative;z-index:1}
+  #code-scripts{display:flex;flex-direction:column;gap:18px;max-width:620px;margin:0 auto}
+  .code-script{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;transition:all .2s;position:relative}
+  .code-script::before{content:'';position:absolute;top:0;left:12px;right:12px;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent)}
+  .code-script.active{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.04);box-shadow:0 0 24px rgba(245,158,11,.08),inset 0 0 24px rgba(245,158,11,.02)}
+  .code-script-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px dashed rgba(255,255,255,.08)}
+  .code-script-head .code-script-title{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;display:flex;align-items:center;gap:6px}
+  .code-script-head .code-script-actions{display:flex;gap:4px}
+  .code-script-head button{background:rgba(255,255,255,.06);color:#fff;border:1px solid rgba(255,255,255,.08);width:26px;height:24px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;transition:all .15s;display:flex;align-items:center;justify-content:center}
+  .code-script-head button:hover{background:rgba(255,255,255,.15);transform:translateY(-1px)}
+  .code-script-head .code-script-export:hover{background:#4a9eff;border-color:#4a9eff}
+  .code-script-head .code-script-del:hover{background:#ef4444;border-color:#ef4444}
+  /* === Block rendering === */
+  .code-block-row{margin:0;display:flex;flex-direction:column;position:relative}
+  .code-block{--bc:#4c97ff;background:linear-gradient(180deg,color-mix(in srgb,var(--bc) 100%,white 8%),var(--bc) 90%);color:#fff;padding:8px 12px;border-radius:6px;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:30px;box-shadow:0 2px 0 rgba(0,0,0,.35),0 4px 8px rgba(0,0,0,.25);text-shadow:0 1px 1px rgba(0,0,0,.25);position:relative;transition:all .15s}
+  .code-block:hover{filter:brightness(1.08)}
+  /* Hat block: rounded top corners, flat-ish bottom with notch */
+  .code-block.kind-hat{border-radius:14px 14px 6px 6px}
+  .code-block.kind-hat::before{content:'';position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:14px;height:8px;background:inherit;border-radius:0 0 4px 4px;clip-path:polygon(0 0,100% 0,50% 100%)}
+  /* Stack block: notch on top (to connect to previous), rounded bottom */
+  .code-block.kind-stack{border-radius:6px 6px 8px 8px;margin-top:4px}
+  .code-block.kind-stack::before{content:'';position:absolute;top:-5px;left:50%;transform:translateX(-50%);width:14px;height:8px;background:inherit;clip-path:polygon(50% 0,100% 100%,0 100%)}
+  .code-block.kind-stack::after{content:'';position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:14px;height:8px;background:inherit;clip-path:polygon(0 0,100% 0,50% 100%)}
+  /* Last stack block in chain: rounded bottom (no bottom notch) */
+  .code-block.kind-stack-last{border-radius:6px 6px 14px 14px;margin-top:4px}
+  .code-block.kind-stack-last::before{content:'';position:absolute;top:-5px;left:50%;transform:translateX(-50%);width:14px;height:8px;background:inherit;clip-path:polygon(50% 0,100% 100%,0 100%)}
+  /* C-block: hat-shape on top (rounded + bottom notch), C-shape body, flat bottom */
+  .code-block.kind-c{border-radius:14px 14px 6px 6px;margin-top:4px}
+  .code-block.kind-c::before{content:'';position:absolute;top:-5px;left:50%;transform:translateX(-50%);width:14px;height:8px;background:inherit;clip-path:polygon(50% 0,100% 100%,0 100%)}
+  .code-block.kind-c::after{content:'';position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:14px;height:8px;background:inherit;clip-path:polygon(0 0,100% 0,50% 100%)}
+  .code-block-label{white-space:nowrap;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;gap:4px}
+  /* === Inputs === */
+  .code-block .code-param{background:rgba(255,255,255,.95);color:#222;border:1px solid rgba(0,0,0,.15);border-radius:12px;padding:2px 10px;font-size:11px;font-weight:600;min-width:40px;max-width:120px;text-align:center;box-shadow:inset 0 1px 2px rgba(0,0,0,.1),0 1px 0 rgba(255,255,255,.3);transition:all .15s}
+  .code-block .code-param:focus{outline:none;background:#fff;box-shadow:inset 0 1px 2px rgba(0,0,0,.1),0 0 0 2px rgba(245,158,11,.4)}
+  .code-block .code-param.num{width:54px}
   .code-block .code-param.str{flex:1;min-width:80px}
-  .code-block .code-param.sel{cursor:pointer}
-  .code-block-del{background:rgba(0,0,0,.4);color:#fff;border:0;width:18px;height:18px;border-radius:3px;cursor:pointer;font-size:10px;margin-left:auto}
-  .code-block-children{border-left:3px solid rgba(255,255,255,.2);margin-left:12px;padding:4px 0 4px 8px;display:flex;flex-direction:column;gap:2px}
-  .code-block-empty{color:#666;font-size:11px;font-style:italic;padding:4px}
-  .code-add-script{margin-top:8px;padding:8px;background:rgba(255,255,255,.05);border-radius:4px;display:flex;flex-direction:column;gap:4px}
-  .code-add-hat{background:#3a3a4a;color:#fff;border:0;padding:6px 10px;font-size:12px;font-weight:600;border-radius:4px;cursor:pointer;text-align:left}
-  .code-add-hat:hover{background:#4a4a5a}
-  .code-script-export{background:#4a9eff;color:#000;border:0;width:22px;height:20px;border-radius:3px;cursor:pointer;font-size:10px;font-weight:700}
-  .code-script-export:hover{background:#5aafff}
-  .code-block-row.focused{margin-left:0;padding:2px;border-radius:4px;background:rgba(245,158,11,.08)}
-  .code-cblock-head:hover{opacity:.85}
-  .code-export-modal{position:absolute;inset:0;background:rgba(0,0,0,.85);z-index:140;display:none;align-items:center;justify-content:center}
+  .code-block .code-param.sel{cursor:pointer;appearance:none;-webkit-appearance:none;padding-right:18px;background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path fill="%23222" d="M0 0l5 6 5-6z"/></svg>');background-repeat:no-repeat;background-position:right 6px center}
+  .code-block-del{background:rgba(0,0,0,.3);color:#fff;border:0;width:20px;height:20px;border-radius:50%;cursor:pointer;font-size:11px;margin-left:auto;transition:all .15s;display:flex;align-items:center;justify-content:center;line-height:1;padding:0}
+  .code-block-del:hover{background:#ef4444;transform:scale(1.15);box-shadow:0 2px 6px rgba(239,68,68,.4)}
+  /* Children container (C-block contents) */
+  .code-block-children{border-left:3px solid rgba(255,255,255,.15);margin:6px 0 6px 18px;padding:6px 0 6px 10px;display:flex;flex-direction:column;gap:0;min-height:14px;position:relative}
+  .code-block-children::before{content:'';position:absolute;left:-3px;top:0;bottom:0;width:3px;background:linear-gradient(180deg,rgba(255,255,255,.2),rgba(255,255,255,.05))}
+  .code-block-empty{color:rgba(255,255,255,.35);font-size:11px;font-style:italic;padding:10px;text-align:center;border:1px dashed rgba(255,255,255,.12);border-radius:6px;background:rgba(255,255,255,.02)}
+  /* Focused state */
+  .code-block-row.focused{background:rgba(245,158,11,.06);border-radius:6px;padding:3px 3px 0;margin:0 -3px;box-shadow:0 0 0 1px rgba(245,158,11,.2)}
+  .code-cblock-head{cursor:pointer;border-radius:6px;padding:2px;margin:0 -2px;transition:all .15s}
+  .code-cblock-head:hover{background:rgba(255,255,255,.05);transform:translateX(2px)}
+  /* Add script section */
+  .code-add-script{margin:18px auto 0;padding:16px;background:rgba(255,255,255,.02);border:1px dashed rgba(255,255,255,.12);border-radius:10px;display:flex;flex-direction:column;gap:6px;max-width:620px}
+  .code-add-script-title{color:#888;font-size:11px;margin-bottom:6px;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;display:flex;align-items:center;gap:6px}
+  .code-add-hat{background:linear-gradient(180deg,rgba(60,60,80,.5),rgba(40,40,60,.5));color:#fff;border:1px solid rgba(255,255,255,.08);padding:10px 14px;font-size:12.5px;font-weight:600;border-radius:6px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;transition:all .15s;font-family:inherit}
+  .code-add-hat:hover{background:linear-gradient(180deg,rgba(80,80,100,.7),rgba(60,60,80,.7));border-color:rgba(255,255,255,.2);transform:translateX(3px);box-shadow:0 2px 6px rgba(0,0,0,.3)}
+  /* Focus indicator */
+  #code-focus-indicator{margin:14px auto;max-width:620px;padding:10px 16px;background:linear-gradient(90deg,rgba(245,158,11,.18),rgba(245,158,11,.06) 80%,transparent);border:1px solid #f59e0b;border-radius:8px;font-size:12px;display:flex;align-items:center;gap:12px;box-shadow:0 0 16px rgba(245,158,11,.15);animation:slideIn .25s ease-out}
+  @keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+  #code-focus-indicator .focus-label{color:#f59e0b;font-weight:700;display:flex;align-items:center;gap:6px}
+  #code-focus-out{background:rgba(255,255,255,.1);color:#fff;border:0;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px;margin-left:auto;font-weight:600;font-family:inherit;transition:all .15s}
+  #code-focus-out:hover{background:rgba(255,255,255,.2)}
+  /* Bottom action bar */
+  .code-bottom-bar{margin:24px auto 0;max-width:620px;padding:16px;background:rgba(0,0,0,.4);border-radius:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;border:1px solid rgba(255,255,255,.05)}
+  .code-bottom-bar .code-btn{border:0;padding:9px 16px;font-size:12px;font-weight:700;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s;font-family:inherit;text-transform:uppercase;letter-spacing:.5px}
+  .code-bottom-bar .code-btn:hover{transform:translateY(-1px);box-shadow:0 4px 8px rgba(0,0,0,.3)}
+  .code-bottom-bar .code-btn-export{background:linear-gradient(180deg,#5aafff,#4a9eff);color:#fff;box-shadow:0 2px 0 #2a7ed1}
+  .code-bottom-bar .code-btn-import{background:linear-gradient(180deg,#a4f040,#7cda24);color:#000;box-shadow:0 2px 0 #5ba818}
+  .code-bottom-bar .code-btn-clear{background:linear-gradient(180deg,#ff8585,#ef4444);color:#fff;box-shadow:0 2px 0 #b91c1c}
+  /* === Modal === */
+  .code-export-modal{position:absolute;inset:0;background:rgba(0,0,0,.88);z-index:140;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
   .code-export-modal.show{display:flex}
-  .code-export-modal .code-export-panel{background:#1a1a2e;border:1px solid #f59e0b;border-radius:8px;padding:18px;width:560px;max-width:90vw}
-  .code-export-modal textarea{width:100%;height:200px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#7cda24;padding:8px;border-radius:4px;font-family:monospace;font-size:11px;resize:vertical}
+  .code-export-modal .code-export-panel{background:linear-gradient(180deg,#1a1a2e,#0f0f1e);border:1px solid #f59e0b;border-radius:12px;padding:20px;width:580px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 40px rgba(245,158,11,.15)}
+  .code-export-modal h3{margin:0 0 6px;background:linear-gradient(45deg,#f59e0b,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .code-export-modal p{color:#888;font-size:12px;margin:0 0 12px}
+  .code-export-modal textarea{width:100%;height:200px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.1);color:#7cda24;padding:10px;border-radius:6px;font-family:monospace;font-size:11px;resize:vertical;line-height:1.5}
+  .code-export-modal textarea:focus{outline:none;border-color:#f59e0b}
+  .code-export-modal button{background:#3a3a4a;color:#fff;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:5px;cursor:pointer;transition:all .15s}
+  .code-export-modal button:hover{background:#4a4a5a;transform:translateY(-1px)}
+  .code-export-modal .btn-copy{background:linear-gradient(180deg,#7cda24,#5ba818);color:#000}
   .craft-panel{background:rgba(20,20,30,.95);border:2px solid var(--accent2);border-radius:10px;padding:20px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto}
   .craft-panel h2{margin:0 0 10px;color:var(--accent2)}
   .craft-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
@@ -370,22 +437,22 @@
 <!-- Code Editor modal (Visual Block Programming) -->
 <div id="code-modal">
   <div class="code-top">
-    <h2>🧩 Code Editor</h2>
-    <button class="code-sample" id="code-load-sample">📝 โหลดตัวอย่าง</button>
-    <button class="code-run" id="code-run">▶ Run</button>
-    <button class="code-stop" id="code-stop">⏹ Stop</button>
-    <button id="code-close">✕ ปิด</button>
+    <h2>🧩 Block Code Editor</h2>
+    <div class="code-stats" id="code-stats">
+      <div class="stat">📜 <span class="stat-v" id="code-stat-scripts">0</span> scripts</div>
+      <div class="stat">🧱 <span class="stat-v" id="code-stat-blocks">0</span> blocks</div>
+    </div>
+    <div style="flex:1"></div>
+    <button class="code-btn code-sample" id="code-load-sample">📝 ตัวอย่าง</button>
+    <button class="code-btn code-run" id="code-run">▶ Run</button>
+    <button class="code-btn code-stop" id="code-stop">⏹ Stop</button>
+    <button class="code-btn code-close" id="code-close">✕</button>
   </div>
   <div class="code-body">
     <div id="code-blocks-list"></div>
     <div class="code-workspace-wrap">
       <div id="code-workspace">
         <div id="code-scripts"></div>
-        <div style="margin-top:14px;display:flex;gap:6px;flex-wrap:wrap">
-          <button id="code-export-all" style="background:#4a9eff;color:#000;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">📤 Export ทั้งหมด</button>
-          <button id="code-import-btn" style="background:#7cda24;color:#000;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">📥 Import</button>
-          <button id="code-clear-all" style="background:#ef4444;color:#fff;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">🗑 ลบทั้งหมด</button>
-        </div>
       </div>
     </div>
   </div>
@@ -5382,12 +5449,13 @@ function renderCodeEditor() {
 }
 
 function renderBlockPreview(type, def) {
+  const cat = BLOCK_CATEGORIES[def.category];
   const params = def.params || [];
   let pHtml = '';
   for (const p of params) {
     pHtml += renderParamInput(type, p, { [p.name]: p.default });
   }
-  return `<span class="code-block-label">${def.label}</span>${pHtml}`;
+  return `<div class="code-block kind-${def.kind}" style="--bc:${cat.color}"><span class="code-block-label">${def.label}</span>${pHtml}</div>`;
 }
 
 function renderParamInput(blockType, p, params) {
@@ -5413,15 +5481,23 @@ function renderScripts() {
   const wrap = document.getElementById('code-scripts');
   if (!wrap) return;
   let html = '';
+  // Compute total blocks
+  let totalBlocks = 0;
+  for (const s of savedScripts) totalBlocks += countBlocks(s);
+  // Update stats
+  const statScripts = document.getElementById('code-stat-scripts');
+  const statBlocks = document.getElementById('code-stat-blocks');
+  if (statScripts) statScripts.textContent = savedScripts.length;
+  if (statBlocks) statBlocks.textContent = totalBlocks;
   for (let i = 0; i < savedScripts.length; i++) {
     const s = savedScripts[i];
     const def = BLOCK_DEFS[s.type];
     html += `<div class="code-script ${i===currentScript?.__idx?'active':''}" data-idx="${i}">
       <div class="code-script-head">
-        <span class="code-block" style="--bc:${BLOCK_CATEGORIES[def.category].color}">${def.label}</span>
-        <div style="display:flex;gap:4px">
+        <span class="code-script-title">📜 SCRIPT ${i + 1} • <span style="color:${BLOCK_CATEGORIES[def.category].color}">${def.label}</span></span>
+        <div class="code-script-actions">
           <button class="code-script-export" data-idx="${i}" title="Export script นี้">📤</button>
-          <button class="code-script-del" data-idx="${i}" title="ลบ">✕</button>
+          <button class="code-script-del" data-idx="${i}" title="ลบ script">🗑</button>
         </div>
       </div>
       ${renderBlockTree(s, s)}
@@ -5429,19 +5505,27 @@ function renderScripts() {
   }
   // New script button
   html += `<div class="code-add-script">
-    <div style="color:#888;font-size:11px;margin-bottom:4px">เพิ่ม script ใหม่ (hat block):</div>
-    <button data-hat="on_start" class="code-add-hat">🏁 เริ่ม</button>
-    <button data-hat="on_chat" class="code-add-hat">💬 พูด</button>
-    <button data-hat="on_key" class="code-add-hat">⌨ กดปุ่ม</button>
+    <div class="code-add-script-title">➕ เพิ่ม script ใหม่ (hat block):</div>
+    <button data-hat="on_start" class="code-add-hat"><span style="font-size:16px">🏁</span><span><b>เมื่อเริ่ม</b><br><span style="font-size:10px;opacity:.7">ทำงานครั้งเดียวตอนเปิดเกม</span></span></button>
+    <button data-hat="on_chat" class="code-add-hat"><span style="font-size:16px">💬</span><span><b>เมื่อพูด</b><br><span style="font-size:10px;opacity:.7">ทำงานเมื่อพิมพ์คำสั่ง</span></span></button>
+    <button data-hat="on_key" class="code-add-hat"><span style="font-size:16px">⌨️</span><span><b>เมื่อกดปุ่ม</b><br><span style="font-size:10px;opacity:.7">ทำงานเมื่อกดปุ่มที่กำหนด</span></span></button>
   </div>`;
   // Show current focus indicator
   if (currentFocus) {
     const focusDef = BLOCK_DEFS[currentFocus.type];
-    html += `<div id="code-focus-indicator" style="margin-top:8px;padding:6px 10px;background:rgba(245,158,11,.15);border:1px solid #f59e0b;border-radius:4px;font-size:11px;display:flex;align-items:center;gap:8px">
-      <span>📍 กำลังเพิ่มบล็อกภายใน: <b style="color:#f59e0b">${focusDef?.label || currentFocus.type}</b></span>
-      <button id="code-focus-out" style="background:#666;color:#fff;border:0;padding:2px 8px;border-radius:3px;cursor:pointer;font-size:10px">ออก</button>
+    html += `<div id="code-focus-indicator">
+      <span style="font-size:18px">📍</span>
+      <span class="focus-label">กำลังเพิ่มบล็อกภายใน:</span>
+      <span style="background:${BLOCK_CATEGORIES[focusDef.category].color};color:#fff;padding:4px 10px;border-radius:4px;font-weight:700">${focusDef?.label || currentFocus.type}</span>
+      <button id="code-focus-out">← ออก</button>
     </div>`;
   }
+  // Bottom action bar
+  html += `<div class="code-bottom-bar">
+    <button class="code-btn code-btn-export" id="code-export-all">📤 Export ทั้งหมด</button>
+    <button class="code-btn code-btn-import" id="code-import-btn">📥 Import</button>
+    <button class="code-btn code-btn-clear" id="code-clear-all">🗑 ลบทั้งหมด</button>
+  </div>`;
   wrap.innerHTML = html;
   // Hook delete
   wrap.querySelectorAll('.code-script-del').forEach(b => {
@@ -5565,42 +5649,67 @@ function renderBlockTree(rootBlock, current) {
   // Render the chain of next + children
   let html = '';
   let block = rootBlock;
-  while (block) {
-    html += renderBlockNode(block);
-    if (!block.next) break;
-    block = block.next;
+  // First pass: collect all blocks in chain to find last
+  const chain = [];
+  let b = rootBlock;
+  while (b) {
+    chain.push(b);
+    if (!b.next) break;
+    b = b.next;
+  }
+  for (let i = 0; i < chain.length; i++) {
+    const blk = chain[i];
+    const def = BLOCK_DEFS[blk.type];
+    const isLastInChain = (i === chain.length - 1) && !blk.next && (!def || !def.hasChildren);
+    html += renderBlockNode(blk, isLastInChain);
   }
   return html;
 }
 
-function renderBlockNode(block) {
+function countBlocks(block) {
+  if (!block) return 0;
+  let n = 1;
+  if (block.next) n += countBlocks(block.next);
+  if (Array.isArray(block.children)) {
+    for (const c of block.children) n += countBlocks(c);
+  }
+  return n;
+}
+
+function renderBlockNode(block, isLast = false) {
   const def = BLOCK_DEFS[block.type];
   if (!def) return '';
   const cat = BLOCK_CATEGORIES[def.category];
   const isFocused = currentFocus === block;
+  // Compute kind class: hat, stack, stack-last, c
+  let kindClass = `kind-${def.kind}`;
+  if (def.kind === 'stack' && isLast) kindClass = 'kind-stack-last';
   let html = `<div class="code-block-row ${isFocused ? 'focused' : ''}" data-block-id="${block.id}">`;
   // For C-blocks, wrap the head in a clickable div for focus
   if (def.hasChildren) {
-    html += `<div class="code-cblock-head" data-block-id="${block.id}" style="cursor:pointer;${isFocused ? 'outline:2px solid #f59e0b;outline-offset:1px;border-radius:5px' : ''}" title="คลิกเพื่อเพิ่มบล็อกภายใน">`;
+    html += `<div class="code-cblock-head" data-block-id="${block.id}" title="คลิกเพื่อเพิ่มบล็อกภายใน">`;
   }
-  html += `<div class="code-block" style="--bc:${cat.color}">`;
+  html += `<div class="code-block ${kindClass}" style="--bc:${cat.color}">`;
   html += `<span class="code-block-label">${def.label}</span>`;
   if (block.params) {
     for (const p of def.params) {
       html += renderParamInput(block.type, p, block.params);
     }
   }
-  html += `<button class="code-block-del" data-block-id="${block.id}">✕</button>`;
+  html += `<button class="code-block-del" data-block-id="${block.id}" title="ลบบล็อก">✕</button>`;
   html += `</div>`;
   if (def.hasChildren) {
     html += `</div>`; // close code-cblock-head
     html += `<div class="code-block-children" data-parent-id="${block.id}">`;
     if (block.children && block.children.length) {
-      for (const c of block.children) {
-        html += renderBlockNode(c);
+      for (let i = 0; i < block.children.length; i++) {
+        const c = block.children[i];
+        const cDef = BLOCK_DEFS[c.type];
+        const cIsLast = i === block.children.length - 1 && !c.next;
+        html += renderBlockNode(c, cIsLast && (!cDef || !cDef.hasChildren));
       }
     } else {
-      html += `<div class="code-block-empty">${isFocused ? '👆 คลิกบล็อกใน palette เพื่อเพิ่มที่นี่' : 'คลิกที่บล็อกด้านบนเพื่อเพิ่มข้างใน'}</div>`;
+      html += `<div class="code-block-empty">${isFocused ? '👆 คลิกบล็อกใน palette ด้านซ้าย เพื่อเพิ่มที่นี่' : '⌨ คลิกที่บล็อกด้านบนเพื่อเพิ่มข้างใน'}</div>`;
     }
     html += `</div>`;
   }
