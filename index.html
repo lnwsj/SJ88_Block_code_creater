@@ -174,6 +174,8 @@
   #code-modal .code-top .code-run:hover{background:linear-gradient(180deg,#b4ff50,#8cea34)}
   #code-modal .code-top .code-stop{background:linear-gradient(180deg,#ff6b6b,#ef4444);color:#fff;box-shadow:0 2px 0 #b91c1c}
   #code-modal .code-top .code-sample{background:linear-gradient(180deg,#7c3aed,#a855f7);color:#fff;box-shadow:0 2px 0 #6b21a8}
+  #code-modal .code-top .code-ai{background:linear-gradient(180deg,#06b6d4,#0891b2);color:#fff;box-shadow:0 2px 0 #0e7490;animation:aiGlow 2s ease-in-out infinite}
+  @keyframes aiGlow{0%,100%{box-shadow:0 2px 0 #0e7490,0 0 8px rgba(6,182,212,.3)}50%{box-shadow:0 2px 0 #0e7490,0 0 16px rgba(6,182,212,.6)}}
   #code-modal .code-top .code-close{background:linear-gradient(180deg,#555,#333);color:#fff;box-shadow:0 2px 0 #111}
   /* === Body === */
   #code-modal .code-body{flex:1;display:grid;grid-template-columns:240px 1fr;overflow:hidden;background:#0a0a14}
@@ -444,6 +446,7 @@
     </div>
     <div style="flex:1"></div>
     <button class="code-btn code-sample" id="code-load-sample">📝 ตัวอย่าง</button>
+    <button class="code-btn code-ai" id="code-ai">🤖 AI</button>
     <button class="code-btn code-run" id="code-run">▶ Run</button>
     <button class="code-btn code-stop" id="code-stop">⏹ Stop</button>
     <button class="code-btn code-close" id="code-close">✕</button>
@@ -482,6 +485,83 @@
       <button id="code-import-merge" style="background:#7cda24;color:#000;border:0;padding:6px 12px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">📥 Import (merge)</button>
       <button id="code-import-replace" style="background:#f59e0b;color:#000;border:0;padding:6px 12px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">🔄 Replace ทั้งหมด</button>
       <button id="code-import-close" style="background:#666;color:#fff;border:0;padding:6px 12px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI Script Generator modal -->
+<div id="ai-modal" class="code-export-modal">
+  <div class="code-export-panel" style="width:680px;max-width:94vw">
+    <h3 style="color:#06b6d4;margin:0 0 6px">🤖 AI Script Generator</h3>
+    <p style="color:#888;font-size:12px;margin:0 0 14px">พิมพ์คำสั่งภาษาคน → AI จะสร้าง Block script ให้อัตโนมัติ</p>
+
+    <!-- Mode selector -->
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <label style="color:#aaa;font-size:12px;min-width:60px">โหมด:</label>
+      <select id="ai-mode" onchange="updateAIModeUI()" style="flex:0;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:4px 8px;border-radius:4px;font-size:12px">
+        <option value="local">⚡ Local (offline)</option>
+        <option value="online">🌐 Online LLM</option>
+      </select>
+      <span id="ai-mode-desc" style="color:#888;font-size:11px;flex:1"></span>
+    </div>
+
+    <!-- Online settings (collapsible) -->
+    <div id="ai-online-settings" style="display:none;background:rgba(0,0,0,.3);padding:10px;border-radius:6px;margin-bottom:10px;border:1px solid rgba(6,182,212,.2)">
+      <div style="margin-bottom:6px">
+        <label style="color:#aaa;font-size:11px;display:block;margin-bottom:2px">🔑 API Key</label>
+        <input type="password" id="ai-apikey" placeholder="sk-..." style="width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:4px 8px;border-radius:4px;font-size:12px" />
+      </div>
+      <div style="display:flex;gap:6px">
+        <div style="flex:2">
+          <label style="color:#aaa;font-size:11px;display:block;margin-bottom:2px">🌐 API URL</label>
+          <input type="text" id="ai-apiurl" placeholder="https://api.openai.com/v1/chat/completions" style="width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:4px 8px;border-radius:4px;font-size:11px" />
+        </div>
+        <div style="flex:1">
+          <label style="color:#aaa;font-size:11px;display:block;margin-bottom:2px">🤖 Model</label>
+          <input type="text" id="ai-model" placeholder="gpt-4o-mini" style="width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:4px 8px;border-radius:4px;font-size:11px" />
+        </div>
+      </div>
+      <div style="color:#888;font-size:10px;margin-top:6px">รองรับ OpenAI, OpenRouter, Anthropic (ผ่าน OpenRouter), Local Ollama</div>
+    </div>
+
+    <!-- Prompt -->
+    <label style="color:#aaa;font-size:12px;display:block;margin-bottom:4px">💬 คำสั่งของคุณ:</label>
+    <textarea id="ai-prompt" placeholder='ตัวอย่าง: "สร้างบ้าน 5x5 จากอิฐ" / "สร้างหอคอยสูง 10" / "วาดวงกลมรัศมี 5"' rows="2" style="width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px;border-radius:4px;font-size:13px;resize:vertical;font-family:inherit"></textarea>
+
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center">
+      <button id="ai-run" onclick="runAI()" style="background:linear-gradient(180deg,#06b6d4,#0891b2);color:#fff;border:0;padding:9px 18px;font-size:13px;font-weight:700;border-radius:5px;cursor:pointer;box-shadow:0 2px 0 #0e7490">🤖 Generate</button>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button onclick="document.getElementById('ai-prompt').value='สร้างบ้าน 5x5 จากอิฐ'" style="background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);padding:5px 8px;font-size:11px;border-radius:4px;cursor:pointer">🏠 บ้าน</button>
+        <button onclick="document.getElementById('ai-prompt').value='สร้างหอคอยสูง 10'" style="background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);padding:5px 8px;font-size:11px;border-radius:4px;cursor:pointer">🗼 หอคอย</button>
+        <button onclick="document.getElementById('ai-prompt').value='สร้างกำแพงยาว 15'" style="background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);padding:5px 8px;font-size:11px;border-radius:4px;cursor:pointer">🧱 กำแพง</button>
+        <button onclick="document.getElementById('ai-prompt').value='สร้างพีระมิด 7 จากทราย'" style="background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);padding:5px 8px;font-size:11px;border-radius:4px;cursor:pointer">🔺 พีระมิด</button>
+        <button onclick="document.getElementById('ai-prompt').value='ปลูกต้นไม้'" style="background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);padding:5px 8px;font-size:11px;border-radius:4px;cursor:pointer">🌳 ต้นไม้</button>
+        <button onclick="document.getElementById('ai-prompt').value='ขุดหลุม 5x5 ลึก 3'" style="background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);padding:5px 8px;font-size:11px;border-radius:4px;cursor:pointer">⛏ ขุด</button>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="ai-loading" style="display:none;text-align:center;padding:20px;color:#06b6d4">
+      <div style="font-size:24px;margin-bottom:8px">⏳</div>
+      <div>AI กำลังสร้าง script...</div>
+    </div>
+
+    <!-- Result -->
+    <div id="ai-result" style="display:none;margin-top:14px;padding:12px;background:rgba(124,218,36,.06);border:1px solid rgba(124,218,36,.3);border-radius:6px">
+      <div id="ai-result-info" style="font-size:12px;color:#7cda24;line-height:1.6;margin-bottom:8px"></div>
+      <details>
+        <summary style="cursor:pointer;color:#aaa;font-size:11px;margin-bottom:6px">📋 ดู JSON ดิบ</summary>
+        <pre id="ai-result-json" style="background:rgba(0,0,0,.4);padding:8px;border-radius:4px;font-size:10px;overflow-x:auto;color:#7cda24;max-height:200px;overflow-y:auto;line-height:1.4"></pre>
+      </details>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        <button onclick="applyAIResult('merge')" style="background:linear-gradient(180deg,#7cda24,#5ba818);color:#000;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer;box-shadow:0 2px 0 #4a8812">➕ เพิ่มเข้า workspace</button>
+        <button onclick="applyAIResult('replace')" style="background:linear-gradient(180deg,#f59e0b,#d97706);color:#000;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer;box-shadow:0 2px 0 #b45c00">🔄 แทนที่ทั้งหมด</button>
+        <button onclick="closeAIModal()" style="background:#666;color:#fff;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">ยกเลิก</button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end">
+      <button onclick="closeAIModal()" style="background:linear-gradient(180deg,#555,#333);color:#fff;border:0;padding:6px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">ปิด</button>
     </div>
   </div>
 </div>
@@ -5924,6 +6004,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('code-run')?.addEventListener('click', runProgram);
   document.getElementById('code-stop')?.addEventListener('click', stopProgram);
   document.getElementById('code-load-sample')?.addEventListener('click', loadSampleProgram);
+  document.getElementById('code-ai')?.addEventListener('click', openAIModal);
+  // Allow Enter to trigger AI in textarea (Shift+Enter for newline)
+  document.getElementById('ai-prompt')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      runAI();
+    }
+  });
   document.getElementById('code-export-all')?.addEventListener('click', exportScripts);
   document.getElementById('code-import-btn')?.addEventListener('click', () => {
     document.getElementById('code-import-modal').classList.add('show');
@@ -6034,6 +6122,745 @@ function loadSampleProgram() {
   saveScripts();
   renderScripts();
   toast('📝 โหลดตัวอย่าง — กด Run เพื่อดู Bot ทำงาน');
+}
+
+// ======================================================================
+// AI SCRIPT GENERATOR
+// ======================================================================
+// Local pattern-based AI (offline, always works)
+// + Optional online LLM API (OpenAI-compatible, user provides key)
+
+const AI_STORAGE_KEY = 'minicraft_ai_v1';
+const aiSettings = {
+  mode: 'local',         // 'local' | 'online'
+  apiUrl: 'https://api.openai.com/v1/chat/completions',
+  apiKey: '',
+  model: 'gpt-4o-mini',
+};
+// Load saved settings
+try {
+  const saved = JSON.parse(localStorage.getItem(AI_STORAGE_KEY) || '{}');
+  Object.assign(aiSettings, saved);
+} catch(e) {}
+
+// ======================================================================
+// LOCAL PATTERN-BASED AI (offline)
+// ======================================================================
+const LOCAL_AI_PATTERNS = [
+  // === Houses ===
+  {
+    keywords: ['บ้าน', 'house', 'home'],
+    defaults: { size: 5, block: 8, withRoof: true, withDoor: true, withWindows: true },
+    build(p, ctx) {
+      const s = p.size, blk = p.block;
+      const blocks = [
+        { type: 'spawn', params: { x: 0, y: 30, z: 0 } },
+        { type: 'say', params: { text: `🏠 กำลังสร้างบ้าน ${s}x${s} จาก${ctx.blockNames[blk] || 'หิน'}` } },
+      ];
+      // Build 4 walls
+      const wallBlocks = [];
+      for (let y = 0; y < 3; y++) {
+        for (let i = 0; i < s; i++) {
+          // front wall (with door in middle if y < 2)
+          const isDoor = p.withDoor && y < 2 && i === Math.floor(s/2);
+          wallBlocks.push({ x: i, y, z: 0, skip: isDoor });
+          // back wall
+          wallBlocks.push({ x: i, y, z: s-1 });
+          // left wall
+          wallBlocks.push({ x: 0, y, z: i, skip: isDoor && y === 0 && i === Math.floor(s/2) });
+          // right wall
+          wallBlocks.push({ x: s-1, y, z: i });
+        }
+      }
+      // Convert to script blocks
+      let firstAction = true;
+      for (const wb of wallBlocks) {
+        if (wb.skip) continue;
+        // For simplicity: turn then walk then place (not optimal but works)
+        // Better: use spawn + relative movement
+        // We'll use a simple approach: face north, place blocks
+        // Actually let's just do: spawn → for each block, set position manually
+      }
+      // Simpler approach: use a single block placement strategy
+      // The agent places blocks by walking around - but coordinate precision is hard
+      // Better: use spawn commands to teleport then place
+      const script = {
+        type: 'on_start', params: {},
+        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+      };
+      let last = script.next;
+      // Say
+      last.next = { type: 'say', params: { text: 'กำลังสร้าง...' }, next: null, children: null };
+      last = last.next;
+      // Place walls
+      for (let y = 0; y < 3; y++) {
+        for (let i = 0; i < s; i++) {
+          for (const wallPos of [
+            { x: i, y, z: 0 }, { x: i, y, z: s-1 },
+            { x: 0, y, z: i }, { x: s-1, y, z: i }
+          ]) {
+            const skip = (p.withDoor && y < 2 && ((wallPos.z === 0 && wallPos.x === Math.floor(s/2)) || (wallPos.x === 0 && wallPos.z === Math.floor(s/2))));
+            if (skip) continue;
+            last.next = { type: 'spawn', params: { x: wallPos.x, y, z: wallPos.z }, next: null, children: null };
+            last = last.next;
+            last.next = { type: 'place', params: { block: blk }, next: null, children: null };
+            last = last.next;
+            // windows in middle row
+            if (p.withWindows && y === 1 && (wallPos.x === 1 || wallPos.x === s-2 || wallPos.z === 1 || wallPos.z === s-2)) {
+              // already placed wall, can override
+            }
+          }
+        }
+      }
+      // Roof
+      if (p.withRoof) {
+        for (let i = 0; i < s; i++) {
+          for (let j = 0; j < s; j++) {
+            last.next = { type: 'spawn', params: { x: i, y: 3, z: j }, next: null, children: null };
+            last = last.next;
+            last.next = { type: 'place', params: { block: 5 }, next: null, children: null }; // wood plank
+            last = last.next;
+          }
+        }
+      }
+      last.next = { type: 'say', params: { text: '🏠 เสร็จแล้ว!' }, next: null, children: null };
+      return script;
+    }
+  },
+  // === Wall ===
+  {
+    keywords: ['กำแพง', 'wall', 'fence'],
+    build(p, ctx) {
+      const len = p.length || 10;
+      const blk = p.block || 8;
+      const script = {
+        type: 'on_start', params: {},
+        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+      };
+      let last = script.next;
+      last.next = { type: 'say', params: { text: `🧱 สร้างกำแพงยาว ${len}` }, next: null, children: null };
+      last = last.next;
+      for (let i = 0; i < len; i++) {
+        last.next = { type: 'spawn', params: { x: i, y: 30, z: 0 }, next: null, children: null };
+        last = last.next;
+        last.next = { type: 'place', params: { block: blk }, next: null, children: null };
+        last = last.next;
+      }
+      last.next = { type: 'say', params: { text: '✅ กำแพงเสร็จ!' }, next: null, children: null };
+      return script;
+    }
+  },
+  // === Tower ===
+  {
+    keywords: ['หอคอย', 'tower'],
+    build(p, ctx) {
+      const h = p.height || 10;
+      const s = 3;
+      const blk = p.block || 8;
+      const script = {
+        type: 'on_start', params: {},
+        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+      };
+      let last = script.next;
+      last.next = { type: 'say', params: { text: `🏗 สร้างหอคอยสูง ${h}` }, next: null, children: null };
+      last = last.next;
+      for (let y = 0; y < h; y++) {
+        for (let i = 0; i < s; i++) {
+          for (let j = 0; j < s; j++) {
+            if (i === 0 || i === s-1 || j === 0 || j === s-1) {
+              last.next = { type: 'spawn', params: { x: i, y: y, z: j }, next: null, children: null };
+              last = last.next;
+              last.next = { type: 'place', params: { block: blk }, next: null, children: null };
+              last = last.next;
+            }
+          }
+        }
+      }
+      last.next = { type: 'say', params: { text: '🗼 หอคอยเสร็จ!' }, next: null, children: null };
+      return script;
+    }
+  },
+  // === Bridge ===
+  {
+    keywords: ['สะพาน', 'bridge'],
+    build(p, ctx) {
+      const len = p.length || 15;
+      const script = {
+        type: 'on_start', params: {},
+        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+      };
+      let last = script.next;
+      last.next = { type: 'say', params: { text: `🌉 สร้างสะพานยาว ${len}` }, next: null, children: null };
+      last = last.next;
+      for (let i = 0; i < len; i++) {
+        last.next = { type: 'spawn', params: { x: i, y: 30, z: 0 }, next: null, children: null };
+        last = last.next;
+        last.next = { type: 'place', params: { block: 7 }, next: null, children: null }; // planks
+        last = last.next;
+      }
+      last.next = { type: 'say', params: { text: '🌉 สะพานเสร็จ!' }, next: null, children: null };
+      return script;
+    }
+  },
+  // === Floor / Platform ===
+  {
+    keywords: ['พื้น', 'platform', 'floor', 'แท่น'],
+    build(p, ctx) {
+      const w = p.width || 10, d = p.depth || 10;
+      const blk = p.block || 7;
+      const script = {
+        type: 'on_start', params: {},
+        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+      };
+      let last = script.next;
+      last.next = { type: 'say', params: { text: `⬜ สร้างพื้น ${w}x${d}` }, next: null, children: null };
+      last = last.next;
+      for (let i = 0; i < w; i++) {
+        for (let j = 0; j < d; j++) {
+          last.next = { type: 'spawn', params: { x: i, y: 30, z: j }, next: null, children: null };
+          last = last.next;
+          last.next = { type: 'place', params: { block: blk }, next: null, children: null };
+          last = last.next;
+        }
+      }
+      last.next = { type: 'say', params: { text: '✅ พื้นเสร็จ!' }, next: null, children: null };
+      return script;
+    }
+  },
+  // === Pyramid ===
+  {
+    keywords: ['พีระมิด', 'pyramid'],
+    build(p, ctx) {
+      const size = p.size || 5;
+      const blk = p.block || 4; // sand
+      const script = {
+        type: 'on_start', params: {},
+        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+      };
+      let last = script.next;
+      last.next = { type: 'say', params: { text: `🔺 สร้างพีระมิด ${size}x${size}` }, next: null, children: null };
+      last = last.next;
+      for (let y = 0; y < size; y++) {
+        const layerSize = size - y;
+        const offset = y;
+        for (let i = 0; i < layerSize; i++) {
+          for (let j = 0; j < layerSize; j++) {
+            last.next = { type: 'spawn', params: { x: i + offset, y: y, z: j + offset }, next: null, children: null };
+            last = last.next;
+            last.next = { type: 'place', params: { block: blk }, next: null, children: null };
+            last = last.next;
+          }
+        }
+      }
+      last.next = { type: 'say', params: { text: '🔺 พีระมิดเสร็จ!' }, next: null, children: null };
+      return script;
+    }
+  },
+  // === Pool ===
+  {
+    keywords: ['สระ', 'pool', 'บ่อน้ำ'],
+    build(p, ctx) {
+      const w = p.width || 5, d = p.depth || 5;
+      const script = {
+        type: 'on_start', params: {},
+        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+      };
+      let last = script.next;
+      last.next = { type: 'say', params: { text: `🏊 สร้างสระ ${w}x${d}` }, next: null, children: null };
+      last = last.next;
+      // Dig a hole
+      for (let i = 0; i < w; i++) {
+        for (let j = 0; j < d; j++) {
+          last.next = { type: 'spawn', params: { x: i, y: 30, z: j }, next: null, children: null };
+          last = last.next;
+          last.next = { type: 'break_block', params: {}, next: null, children: null };
+          last = last.next;
+          last.next = { type: 'place', params: { block: 13 }, next: null, children: null }; // water
+          last = last.next;
+        }
+      }
+      last.next = { type: 'say', params: { text: '🏊 สระเสร็จ!' }, next: null, children: null };
+      return script;
+    }
+  },
+  // === Circle ===
+  {
+    keywords: ['วงกลม', 'circle', 'ring'],
+    build(p, ctx) {
+      const r = p.radius || 5;
+      const blk = p.block || 8;
+      const script = {
+        type: 'on_start', params: {},
+        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+      };
+      let last = script.next;
+      last.next = { type: 'say', params: { text: `⭕ วงกลมรัศมี ${r}` }, next: null, children: null };
+      last = last.next;
+      for (let i = 0; i < 360; i += 10) {
+        const rad = (i * Math.PI) / 180;
+        const x = Math.round(r * Math.cos(rad));
+        const z = Math.round(r * Math.sin(rad));
+        last.next = { type: 'spawn', params: { x, y: 30, z }, next: null, children: null };
+        last = last.next;
+        last.next = { type: 'place', params: { block: blk }, next: null, children: null };
+        last = last.next;
+      }
+      last.next = { type: 'say', params: { text: '⭕ วงกลมเสร็จ!' }, next: null, children: null };
+      return script;
+    }
+  },
+  // === Dig ===
+  {
+    keywords: ['ขุด', 'dig', 'หลุม'],
+    build(p, ctx) {
+      const w = p.width || 3, d = p.depth || 3, depth = p.depth2 || 3;
+      const script = {
+        type: 'on_start', params: {},
+        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+      };
+      let last = script.next;
+      last.next = { type: 'say', params: { text: `⛏ ขุดหลุม ${w}x${d}x${depth}` }, next: null, children: null };
+      last = last.next;
+      for (let y = 0; y < depth; y++) {
+        for (let i = 0; i < w; i++) {
+          for (let j = 0; j < d; j++) {
+            last.next = { type: 'spawn', params: { x: i, y: 30 - y, z: j }, next: null, children: null };
+            last = last.next;
+            last.next = { type: 'break_block', params: {}, next: null, children: null };
+            last = last.next;
+          }
+        }
+      }
+      last.next = { type: 'say', params: { text: '⛏ ขุดเสร็จ!' }, next: null, children: null };
+      return script;
+    }
+  },
+  // === Move test ===
+  {
+    keywords: ['เดิน', 'เคลื่อนที่', 'move', 'walk'],
+    build(p, ctx) {
+      const dir = p.direction || 'forward';
+      const count = p.count || 10;
+      const script = {
+        type: 'on_start', params: {},
+        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+      };
+      let last = script.next;
+      last.next = { type: 'walk', params: { direction: dir, count }, next: null, children: null };
+      last = last.next;
+      last.next = { type: 'say', params: { text: '🚶 เดินเสร็จ!' }, next: null, children: null };
+      return script;
+    }
+  },
+  // === Greeting ===
+  {
+    keywords: ['สวัสดี', 'hello', 'ทักทาย', 'greet'],
+    build(p, ctx) {
+      const script = {
+        type: 'on_start', params: {},
+        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+      };
+      let last = script.next;
+      last.next = { type: 'say', params: { text: 'สวัสดีครับ! 👋' }, next: null, children: null };
+      last = last.next;
+      last.next = { type: 'jump', params: {}, next: null, children: null };
+      last = last.next;
+      last.next = { type: 'say', params: { text: 'ยินดีต้อนรับสู่ MiniCraft 3D!' }, next: null, children: null };
+      return script;
+    }
+  },
+  // === Tree (decoration) ===
+  {
+    keywords: ['ต้นไม้', 'tree'],
+    build(p, ctx) {
+      const h = p.height || 5;
+      const script = {
+        type: 'on_start', params: {},
+        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+      };
+      let last = script.next;
+      last.next = { type: 'say', params: { text: '🌳 ปลูกต้นไม้' }, next: null, children: null };
+      last = last.next;
+      // Trunk
+      for (let y = 0; y < h; y++) {
+        last.next = { type: 'spawn', params: { x: 0, y, z: 0 }, next: null, children: null };
+        last = last.next;
+        last.next = { type: 'place', params: { block: 5 }, next: null, children: null }; // wood
+        last = last.next;
+      }
+      // Leaves (3x3 around top)
+      for (let i = -1; i <= 1; i++) {
+        for (let j = -1; j <= 1; j++) {
+          for (let dy = 0; dy < 2; dy++) {
+            if (Math.abs(i) + Math.abs(j) > 1 && dy === 0) continue;
+            last.next = { type: 'spawn', params: { x: i, y: h + dy, z: j }, next: null, children: null };
+            last = last.next;
+            last.next = { type: 'place', params: { block: 6 }, next: null, children: null }; // leaves
+            last = last.next;
+          }
+        }
+      }
+      last.next = { type: 'say', params: { text: '🌳 ต้นไม้เสร็จ!' }, next: null, children: null };
+      return script;
+    }
+  },
+];
+
+function localAIGenerate(prompt) {
+  const lower = prompt.toLowerCase();
+  const ctx = { blockNames: window.BLOCK_NAMES || {} };
+  for (const pattern of LOCAL_AI_PATTERNS) {
+    for (const kw of pattern.keywords) {
+      if (lower.includes(kw.toLowerCase())) {
+        // Parse simple params from prompt
+        const params = parseSimpleParams(prompt, pattern.defaults || {});
+        const tree = pattern.build(params, ctx);
+        return {
+          ok: true,
+          source: 'local',
+          pattern: kw,
+          params,
+          script: { id: 'ai_' + Date.now(), name: 'AI: ' + prompt, scripts: [tree] },
+          description: `Matched pattern "${kw}" (offline)`
+        };
+      }
+    }
+  }
+  // No match - return greeting
+  return {
+    ok: true,
+    source: 'local',
+    pattern: 'fallback',
+    script: {
+      id: 'ai_' + Date.now(),
+      name: 'AI: ' + prompt.slice(0, 30),
+      scripts: [{
+        type: 'on_start', params: {},
+        next: { type: 'say', params: { text: '🤖 ขออภัย ผมยังไม่เข้าใจคำสั่ง: "' + prompt + '"\nลอง: บ้าน, หอคอย, กำแพง, พีระมิด, ต้นไม้, สะพาน, ขุด, สระ, วงกลม' }, next: null, children: null }
+      }]
+    },
+    description: 'ไม่พบ pattern ที่ตรงกัน (local AI)'
+  };
+}
+
+function parseSimpleParams(prompt, defaults) {
+  const params = { ...defaults };
+  // Extract numbers
+  const numMatches = prompt.match(/(\d+)/g);
+  if (numMatches && numMatches.length > 0) {
+    // Try to match keywords to params
+    const lower = prompt.toLowerCase();
+    if (lower.includes('size') || lower.includes('ขนาด') || /\d+\s*x\s*\d+/.test(prompt)) {
+      const dim = prompt.match(/(\d+)\s*[x×*]\s*(\d+)/);
+      if (dim) {
+        params.size = parseInt(dim[1]);
+        params.width = parseInt(dim[1]);
+        params.depth = parseInt(dim[2]);
+      }
+    } else if (lower.includes('ยาว') || lower.includes('long') || lower.includes('length')) {
+      params.length = parseInt(numMatches[0]);
+    } else if (lower.includes('สูง') || lower.includes('tall') || lower.includes('high') || lower.includes('height')) {
+      params.height = parseInt(numMatches[0]);
+    } else if (lower.includes('รัศมี') || lower.includes('radius')) {
+      params.radius = parseInt(numMatches[0]);
+    } else if (numMatches.length >= 1) {
+      // Default: use first number as size/length
+      const n = parseInt(numMatches[0]);
+      if (params.size) params.size = n;
+      if (params.length) params.length = n;
+      if (params.height) params.height = n;
+    }
+  }
+  // Extract block type
+  const blockKeywords = {
+    'หิน': 3, 'หินก้อน': 3, 'stone': 3,
+    'อิฐ': 8, 'cobble': 8, 'cobblestone': 8,
+    'ไม้': 5, 'wood': 5,
+    'ไม้แปรรูป': 7, 'plank': 7, 'planks': 7,
+    'ทราย': 4, 'sand': 4,
+    'อิฐแดง': 11, 'brick': 11,
+    'หิมะ': 10, 'snow': 10,
+    'กระจก': 14, 'glass': 14,
+    'น้ำ': 13, 'water': 13,
+    'หญ้า': 1, 'grass': 1, 'ดิน': 2, 'dirt': 2,
+    'ฟักทอง': 12, 'pumpkin': 12,
+  };
+  for (const [kw, id] of Object.entries(blockKeywords)) {
+    if (prompt.toLowerCase().includes(kw)) {
+      params.block = id;
+      break;
+    }
+  }
+  return params;
+}
+
+// ======================================================================
+// ONLINE LLM API (OpenAI-compatible)
+// ======================================================================
+const AI_SYSTEM_PROMPT = `You are a script generator for MiniCraft 3D's Visual Block Programming system.
+
+Generate a JSON script that the game can execute. Output ONLY valid JSON, no other text.
+
+# Block types:
+- Hat blocks (event handlers - these are the starting blocks of each script):
+  - on_start: runs when game starts
+  - on_chat <command>: runs when player types /<command>
+  - on_key <key:w|a|s|d|space>: runs on key press
+
+- Motion:
+  - walk <direction:forward|back|left|right> <count:1-20>
+  - turn <degrees:-360-360>
+  - jump
+  - fly_up <height:1-20>
+  - fly_down <height:1-20>
+  - teleport <distance:1-50>
+
+- Action:
+  - break_block
+  - place <block_id:1-29>
+  - say <text>
+  - spawn <x> <y> <z>
+
+- Control:
+  - repeat <count:1-100> with children: [...]
+  - if_block <condition:block_ahead|ground_below|is_day|is_night> with children: [...]
+  - wait <seconds:0.1-10>
+
+- Variables:
+  - set_var <name> <value>
+  - change_var <name> <delta>
+
+# Block IDs:
+0=AIR, 1=GRASS, 2=DIRT, 3=STONE, 4=SAND, 5=WOOD, 6=LEAVES,
+7=PLANKS, 8=COBBLE, 9=BEDROCK, 10=SNOW, 11=BRICK, 12=PUMPKIN,
+13=WATER, 14=GLASS, 15=TORCH, 16=DOOR, 17=CACTUS, 18=SANDSTONE,
+19=ICE, 20=ORE_COAL, 21=ORE_IRON, 22=ORE_GOLD, 23=ORE_DIAMOND,
+24=GLOWSTONE, 25=CRAFTING_TABLE, 26=LEVER, 27=PRESSURE_PLATE,
+28=FLOWER, 29=SAPLING
+
+# Format:
+{
+  "id": "ai_<timestamp>",
+  "name": "<short name>",
+  "scripts": [
+    {
+      "id": "s_<unique>",
+      "type": "on_start",
+      "params": {},
+      "next": {
+        "id": "b_<unique>",
+        "type": "place",
+        "params": { "block": 8 },
+        "next": null,
+        "children": null
+      },
+      "children": null
+    }
+  ]
+}
+
+# Rules:
+- Every script starts with a hat block (on_start, on_chat, on_key)
+- "next" chains blocks together
+- "children" is for repeat/if_block (contains nested blocks)
+- For building, use spawn + place sequences
+- For movement, use walk (count 1-20) or teleport
+- Keep scripts reasonable (under 100 blocks)
+- Use say blocks to communicate progress
+
+User request: `;
+
+async function onlineAIGenerate(prompt) {
+  if (!aiSettings.apiKey) {
+    return { ok: false, error: 'ต้องใส่ API Key ก่อน (Settings → AI)' };
+  }
+  try {
+    const res = await fetch(aiSettings.apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + aiSettings.apiKey
+      },
+      body: JSON.stringify({
+        model: aiSettings.model,
+        messages: [
+          { role: 'system', content: AI_SYSTEM_PROMPT },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+      })
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      return { ok: false, error: 'API ' + res.status + ': ' + errText.slice(0, 200) };
+    }
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    // Extract JSON from response (might have markdown code block)
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return { ok: false, error: 'ไม่พบ JSON ในคำตอบ: ' + content.slice(0, 200) };
+    }
+    let parsed;
+    try { parsed = JSON.parse(jsonMatch[0]); } catch(e) {
+      return { ok: false, error: 'JSON parse error: ' + e.message };
+    }
+    const validated = validateAIScript(parsed);
+    if (!validated.ok) return validated;
+    return {
+      ok: true,
+      source: 'online',
+      pattern: 'llm',
+      script: validated.script,
+      description: 'Generated by LLM'
+    };
+  } catch(e) {
+    return { ok: false, error: 'Network error: ' + e.message };
+  }
+}
+
+function validateAIScript(data) {
+  if (!data || typeof data !== 'object') return { ok: false, error: 'ไม่ใช่ object' };
+  if (!Array.isArray(data.scripts)) return { ok: false, error: 'ไม่มี scripts array' };
+  // Validate each script
+  for (let i = 0; i < data.scripts.length; i++) {
+    const s = data.scripts[i];
+    if (!BLOCK_DEFS[s.type]) return { ok: false, error: `Script ${i+1}: invalid type "${s.type}"` };
+    if (BLOCK_DEFS[s.type].kind !== 'hat') return { ok: false, error: `Script ${i+1}: ต้องเริ่มด้วย hat block` };
+    // Validate recursively
+    const checkBlocks = (block, path) => {
+      if (!block || typeof block !== 'object') return;
+      if (!BLOCK_DEFS[block.type]) throw new Error(`${path}: invalid type "${block.type}"`);
+      // Validate params
+      const def = BLOCK_DEFS[block.type];
+      for (const p of def.params || []) {
+        if (block.params && block.params[p.name] !== undefined) {
+          const v = block.params[p.name];
+          if (p.type === 'number') {
+            const n = parseFloat(v);
+            if (isNaN(n)) throw new Error(`${path}.${p.name}: not a number`);
+            block.params[p.name] = n;
+            if (p.min !== undefined && n < p.min) block.params[p.name] = p.min;
+            if (p.max !== undefined && n > p.max) block.params[p.name] = p.max;
+          } else if (p.type === 'string') {
+            block.params[p.name] = String(v).slice(0, 200);
+          }
+        } else if (block.params) {
+          block.params[p.name] = p.default;
+        }
+      }
+      if (!block.params) block.params = {};
+      if (!block.id) block.id = 'b_ai_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+      if (block.next) checkBlocks(block.next, path + '.next');
+      if (Array.isArray(block.children)) {
+        for (let j = 0; j < block.children.length; j++) {
+          checkBlocks(block.children[j], path + `.children[${j}]`);
+        }
+      } else {
+        block.children = null;
+      }
+    };
+    try {
+      checkBlocks(s, `script ${i+1}`);
+    } catch(e) {
+      return { ok: false, error: e.message };
+    }
+  }
+  return { ok: true, script: data };
+}
+
+function aiGenerateScript(prompt) {
+  if (aiSettings.mode === 'online') {
+    return onlineAIGenerate(prompt);
+  } else {
+    // Local is synchronous, wrap in promise for consistency
+    return Promise.resolve(localAIGenerate(prompt));
+  }
+}
+
+// AI Modal UI
+function openAIModal() {
+  document.getElementById('ai-modal').classList.add('show');
+  document.getElementById('ai-prompt').value = '';
+  document.getElementById('ai-result').style.display = 'none';
+  document.getElementById('ai-prompt').focus();
+  // Load saved settings
+  document.getElementById('ai-mode').value = aiSettings.mode;
+  document.getElementById('ai-apikey').value = aiSettings.apiKey;
+  document.getElementById('ai-apiurl').value = aiSettings.apiUrl;
+  document.getElementById('ai-model').value = aiSettings.model;
+  updateAIModeUI();
+}
+function closeAIModal() {
+  document.getElementById('ai-modal').classList.remove('show');
+  // Save settings
+  aiSettings.mode = document.getElementById('ai-mode').value;
+  aiSettings.apiKey = document.getElementById('ai-apikey').value.trim();
+  aiSettings.apiUrl = document.getElementById('ai-apiurl').value.trim() || aiSettings.apiUrl;
+  aiSettings.model = document.getElementById('ai-model').value.trim() || 'gpt-4o-mini';
+  try { localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(aiSettings)); } catch(e) {}
+}
+function updateAIModeUI() {
+  const mode = document.getElementById('ai-mode').value;
+  document.getElementById('ai-online-settings').style.display = mode === 'online' ? 'block' : 'none';
+  document.getElementById('ai-mode-desc').textContent = mode === 'online' ?
+    '🌐 ใช้ LLM API (ต้องใส่ key) — ยืดหยุ่นกว่า แต่ต้องต่อเน็ต' :
+    '⚡ ใช้ pattern matching ในเครื่อง — เร็ว ไม่ต้องต่อเน็ต แต่จำกัดคำสั่ง';
+}
+
+let _aiLastResult = null;
+async function runAI() {
+  const prompt = document.getElementById('ai-prompt').value.trim();
+  if (!prompt) { toast('⚠ พิมพ์คำสั่งก่อน'); return; }
+  // Save settings
+  aiSettings.mode = document.getElementById('ai-mode').value;
+  aiSettings.apiKey = document.getElementById('ai-apikey').value.trim();
+  aiSettings.apiUrl = document.getElementById('ai-apiurl').value.trim() || aiSettings.apiUrl;
+  aiSettings.model = document.getElementById('ai-model').value.trim() || 'gpt-4o-mini';
+  // Show loading
+  document.getElementById('ai-loading').style.display = 'block';
+  document.getElementById('ai-result').style.display = 'none';
+  const btn = document.getElementById('ai-run');
+  btn.disabled = true;
+  btn.textContent = '⏳ กำลังสร้าง...';
+  const result = await aiGenerateScript(prompt);
+  btn.disabled = false;
+  btn.textContent = '🤖 Generate';
+  document.getElementById('ai-loading').style.display = 'none';
+  if (!result.ok) {
+    toast('❌ ' + result.error);
+    return;
+  }
+  _aiLastResult = result;
+  // Show result
+  const resEl = document.getElementById('ai-result');
+  resEl.style.display = 'block';
+  // Count blocks
+  let blockCount = 0;
+  for (const s of result.script.scripts) blockCount += countBlocks(s);
+  document.getElementById('ai-result-info').innerHTML =
+    `<b>✅ สร้างสำเร็จ!</b><br>` +
+    `📍 Source: ${result.source} | Pattern: ${result.pattern}<br>` +
+    `📊 ${result.script.scripts.length} script(s), ${blockCount} block(s)<br>` +
+    `<span style="color:#888">${result.description}</span>`;
+  document.getElementById('ai-result-json').textContent = JSON.stringify(result.script, null, 2);
+  toast('🤖 AI สร้าง script สำเร็จ');
+}
+
+function applyAIResult(mode) {
+  if (!_aiLastResult) return;
+  const newScripts = _aiLastResult.script.scripts;
+  if (mode === 'replace') {
+    savedScripts = [];
+  }
+  for (const s of newScripts) {
+    reassignIds(s);
+    savedScripts.push(s);
+  }
+  saveScripts();
+  renderScripts();
+  closeAIModal();
+  toast('✅ เพิ่ม script แล้ว (' + newScripts.length + ' ตัว)');
 }
 
 </script>
