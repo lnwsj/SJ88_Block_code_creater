@@ -1,0 +1,16 @@
+{
+  "id": "ruby_mod",
+  "name": "Ruby Mod (ตัวอย่าง)",
+  "version": "1.0.0",
+  "author": "MiniCraft",
+  "description": "เพิ่มอัญมณีทับทิมและเครื่องมือทับทิม",
+  "items": [
+    { "id": "ruby", "name": "ทับทิม", "color": "#c83030", "shape": "gem" },
+    { "id": "ruby_pickaxe", "name": "พลั่วทับทิม", "color": "#c83030", "shape": "tool_pickaxe" },
+    { "id": "ruby_sword", "name": "ดาบทับทิม", "color": "#c83030", "shape": "tool_sword" }
+  ],
+  "recipes": [
+    { "id": "ruby_pickaxe", "name": "พลั่วทับทิม", "category": "tools", "result": { "name": "ruby_pickaxe", "count": 1 }, "ingredients": [{ "name": "ruby", "count": 3 }, { "name": "stick", "count": 2 }] },
+    { "id": "ruby_sword", "name": "ดาบทับทิม", "category": "tools", "result": { "name": "ruby_sword", "count": 1 }, "ingredients": [{ "name": "ruby", "count": 2 }, { "name": "stick", "count": 1 }] }
+  ]
+}

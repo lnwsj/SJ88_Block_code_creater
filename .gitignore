@@ -1,0 +1,29 @@
+# Node
+node_modules/
+npm-debug.log
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local
+.env
+.env.local
+*.local
+*.bak
+*.tmp
+
+# Test artifacts
+*.png
+test_*.py
+__pycache__/
+
+# Don't ignore our own screenshots
+!docs/screenshots/

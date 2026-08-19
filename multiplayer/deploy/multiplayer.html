@@ -1,0 +1,4788 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>MiniCraft 3D - มายคราฟออฟไลน์</title>
+<style>
+  :root{
+    --bg:#0a0a0f; --paper:#1a1a24; --border:#2a2a3a;
+    --text:#fff; --muted:#9aa; --accent:#7cda24; --accent2:#f0c050;
+    --danger:#ef4444; --info:#3b82f6;
+  }
+  *{box-sizing:border-box;user-select:none;-webkit-user-select:none}
+  html,body{margin:0;padding:0;height:100%;width:100%;background:#000;overflow:hidden;font-family:'Segoe UI',Tahoma,sans-serif;color:var(--text)}
+  canvas#c{display:block;width:100vw;height:100vh;image-rendering:pixelated;cursor:none}
+
+  #hud{position:absolute;inset:0;pointer-events:none;z-index:5}
+
+  /* Crosshair */
+  #crosshair{position:absolute;top:50%;left:50%;width:22px;height:22px;transform:translate(-50%,-50%);mix-blend-mode:difference}
+  #crosshair::before,#crosshair::after{content:"";position:absolute;background:#fff}
+  #crosshair::before{top:50%;left:0;right:0;height:2px;margin-top:-1px}
+  #crosshair::after{left:50%;top:0;bottom:0;width:2px;margin-left:-1px}
+
+  /* Info top-left */
+  #info{position:absolute;top:14px;left:14px;background:rgba(0,0,0,.55);padding:8px 12px;border-radius:6px;font-size:13px;line-height:1.5;border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(4px);min-width:170px}
+  #info b{color:var(--accent)}
+  #fps{color:var(--accent2)}
+
+  /* Hotbar */
+  #hotbar{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:4px;background:rgba(0,0,0,.55);padding:5px;border-radius:6px;border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(4px)}
+  .slot{width:54px;height:54px;background:rgba(40,40,55,.85);border:2px solid rgba(255,255,255,.08);border-radius:4px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .slot.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(124,218,36,.4),inset 0 0 12px rgba(124,218,36,.2)}
+  .slot canvas{width:46px;height:46px;image-rendering:pixelated}
+  .slot .num{position:absolute;top:2px;left:4px;font-size:10px;color:#fff;text-shadow:1px 1px 0 #000;font-weight:700}
+  .slot .lbl{position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:9px;background:rgba(0,0,0,.7);color:#ddd;padding:1px 0;white-space:nowrap}
+
+  /* Selected block preview (right side) */
+  #selected-preview{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);padding:6px 14px;border-radius:20px;font-size:14px;font-weight:600;border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(4px);color:var(--accent)}
+
+  /* Debug right */
+  #debug{position:absolute;top:14px;right:14px;background:rgba(0,0,0,.55);padding:8px 12px;border-radius:6px;font-size:12px;line-height:1.5;border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(4px);min-width:200px;text-align:right;font-family:monospace}
+
+  /* Start screen */
+  #start-screen{position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,40,20,.95),rgba(10,15,10,.98));z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;backdrop-filter:blur(8px)}
+  #start-screen h1{font-size:54px;margin:0 0 8px;text-shadow:4px 4px 0 #000,0 0 30px rgba(124,218,36,.5);letter-spacing:2px;color:var(--accent)}
+  #start-screen .sub{color:var(--muted);font-size:16px;margin-bottom:30px;max-width:600px;line-height:1.6}
+  #start-screen .panel{background:rgba(0,0,0,.5);border:1px solid rgba(124,218,36,.3);border-radius:10px;padding:20px 28px;margin:10px 0;max-width:640px;text-align:left}
+  #start-screen .panel h3{margin:0 0 12px;color:var(--accent2);font-size:18px}
+  #start-screen .row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed rgba(255,255,255,.08);font-size:14px}
+  #start-screen .row:last-child{border:0}
+  #start-screen .key{background:rgba(255,255,255,.1);padding:2px 8px;border-radius:3px;font-family:monospace;font-size:12px;color:var(--accent2)}
+  #start-screen .actions{margin-top:24px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+  #start-screen button{background:var(--accent);color:#000;border:0;padding:12px 32px;font-size:16px;font-weight:700;border-radius:6px;cursor:pointer;font-family:inherit;letter-spacing:.5px;transition:transform .1s,box-shadow .1s;box-shadow:0 4px 0 #4a8a14}
+  #start-screen button:hover{transform:translateY(-2px);box-shadow:0 6px 0 #4a8a14}
+  #start-screen button:active{transform:translateY(2px);box-shadow:0 2px 0 #4a8a14}
+  #start-screen button.alt{background:#3a3a4a;color:#fff;box-shadow:0 4px 0 #1a1a24}
+  #start-screen button.alt:hover{box-shadow:0 6px 0 #1a1a24}
+  #start-screen .seed-display{color:var(--accent2);font-family:monospace;font-size:13px;margin-top:6px}
+
+  /* Multiplayer panel */
+  #mp-panel{background:rgba(0,0,0,.6);border:2px solid #4a9eff;border-radius:10px;padding:20px 28px;margin:14px 0;max-width:500px;text-align:center;display:none}
+  #mp-panel.show{display:block}
+  #mp-panel h3{color:#4a9eff;margin:0 0 10px;font-size:18px}
+  #mp-panel .code-display{font-size:42px;font-weight:800;letter-spacing:8px;color:#ffd800;font-family:monospace;margin:14px 0;padding:10px;background:rgba(0,0,0,.4);border-radius:6px;border:1px solid #4a9eff}
+  #mp-panel input.code-input{font-size:28px;font-weight:700;letter-spacing:6px;color:#fff;background:rgba(0,0,0,.4);border:1px solid #4a9eff;padding:10px 20px;border-radius:6px;width:200px;text-align:center;text-transform:uppercase;font-family:monospace;outline:none}
+  #mp-panel input.code-input:focus{border-color:#ffd800;box-shadow:0 0 0 2px rgba(255,216,0,.3)}
+  #mp-panel .mp-info{color:var(--muted);font-size:12px;margin-top:8px}
+  #mp-panel .mp-buttons{display:flex;gap:10px;margin-top:14px;justify-content:center;flex-wrap:wrap}
+  #mp-panel button.mp-back{background:#666;color:#fff;box-shadow:0 4px 0 #333}
+  #mp-panel button.mp-back:hover{box-shadow:0 6px 0 #333}
+  #mp-status{position:absolute;top:60px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;padding:6px 14px;border-radius:6px;font-size:13px;border:1px solid #4a9eff;z-index:50;display:none;font-family:monospace}
+  #mp-status.show{display:block}
+  #mp-status .mp-code{color:#ffd800;font-weight:700;letter-spacing:2px}
+
+  /* Player list (top right) */
+  #mp-players{position:absolute;top:340px;right:14px;background:rgba(0,0,0,.7);border:1px solid #4a9eff;border-radius:6px;padding:8px 10px;backdrop-filter:blur(4px);font-size:11px;min-width:140px;z-index:50}
+  #mp-players h4{margin:0 0 6px;color:#4a9eff;font-size:11px}
+  .mp-player-row{display:flex;align-items:center;gap:6px;padding:2px 0;font-size:11px}
+  .mp-player-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+  /* Chat */
+  #mp-chat{position:absolute;bottom:80px;left:14px;background:rgba(0,0,0,.7);border:1px solid #4a9eff;border-radius:6px;padding:8px 10px;backdrop-filter:blur(4px);font-size:12px;width:300px;max-height:200px;display:none;flex-direction:column;z-index:50}
+  #mp-chat.show{display:flex}
+  #mp-chat h4{margin:0 0 6px;color:#4a9eff;font-size:11px;display:flex;justify-content:space-between}
+  #mp-chat .chat-log{flex:1;overflow-y:auto;min-height:60px;max-height:120px;margin-bottom:6px;font-family:monospace}
+  #mp-chat .chat-msg{margin:1px 0;font-size:11px;line-height:1.4}
+  #mp-chat .chat-name{font-weight:700}
+  #mp-chat input{width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:4px 6px;border-radius:3px;font-size:12px;outline:none;font-family:inherit}
+  #mp-chat input:focus{border-color:#4a9eff}
+  #chat-toggle{position:absolute;bottom:80px;left:14px;background:rgba(0,0,0,.6);color:#4a9eff;border:1px solid #4a9eff;padding:6px 10px;border-radius:6px;font-size:11px;cursor:pointer;display:none;z-index:50}
+  #chat-toggle.show{display:block}
+  #start-screen .credit{margin-top:30px;color:#666;font-size:12px}
+
+  /* Pause overlay */
+  #pause{position:absolute;inset:0;background:rgba(0,0,0,.75);z-index:90;display:none;align-items:center;justify-content:center;flex-direction:column;backdrop-filter:blur(4px)}
+  #pause.show{display:flex}
+  #pause h2{font-size:38px;margin:0 0 8px;color:var(--accent)}
+  #pause p{color:var(--muted);font-size:14px;margin:4px 0}
+  #pause button{margin-top:18px;background:var(--accent);color:#000;border:0;padding:10px 24px;font-size:14px;font-weight:700;border-radius:6px;cursor:pointer;font-family:inherit}
+
+  /* Toast */
+  #toast{position:absolute;top:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);padding:10px 20px;border-radius:6px;font-size:14px;border:1px solid var(--accent);opacity:0;transition:opacity .25s;z-index:80;pointer-events:none}
+  #toast.show{opacity:1}
+
+  /* Hide HUD when not playing */
+  body.playing #start-screen, body.playing #pause{display:none}
+  body:not(.playing) #hud{display:none}
+
+  /* HP/Heart bar (above hotbar) */
+  #hud-hp{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);display:flex;gap:3px;background:rgba(0,0,0,.6);padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(4px)}
+  .heart{width:14px;height:14px;font-size:14px;line-height:1;display:inline-block}
+
+  /* Hunger bar */
+  #hud-hunger{position:absolute;bottom:80px;left:calc(50% + 90px);transform:none;display:flex;gap:2px;background:rgba(0,0,0,.55);padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(4px);min-width:140px;justify-content:center}
+  .hunger-icon{font-size:11px;line-height:1}
+
+  /* Time indicator (top center) */
+  #hud-time{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.55);padding:6px 14px;border-radius:6px;font-size:13px;border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(4px);font-family:monospace;min-width:120px;text-align:center}
+  .time-icon{display:inline-block;margin-right:4px}
+
+  /* Minimap (top right, below debug) */
+  #minimap{position:absolute;top:200px;right:14px;background:rgba(0,0,0,.7);border:2px solid rgba(255,255,255,.15);border-radius:6px;padding:4px;backdrop-filter:blur(4px)}
+  #minimap canvas{display:block;image-rendering:pixelated}
+
+  /* Inventory modal (E) */
+  #inv-modal{position:absolute;inset:0;background:rgba(0,0,0,.85);z-index:120;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+  #inv-modal.show{display:flex}
+  .inv-panel{background:rgba(20,20,30,.95);border:2px solid var(--accent);border-radius:10px;padding:20px;max-width:700px;width:90%}
+  .inv-panel h2{margin:0 0 10px;color:var(--accent)}
+  .inv-row{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:13px}
+  .inv-row .lbl{width:90px;color:var(--muted)}
+  .inv-row .slots{display:flex;gap:4px}
+  .inv-slot{width:36px;height:36px;background:rgba(60,60,80,.6);border:1px solid rgba(255,255,255,.15);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;position:relative}
+  .inv-slot.empty{opacity:.3}
+  .inv-slot canvas{width:30px;height:30px;image-rendering:pixelated}
+  .inv-slot .count{position:absolute;bottom:0;right:2px;font-size:9px;color:#fff;text-shadow:1px 1px 0 #000}
+  .inv-close{position:absolute;top:14px;right:18px;background:transparent;border:0;color:#fff;font-size:24px;cursor:pointer}
+
+  /* Crafting modal (C) */
+  #craft-modal{position:absolute;inset:0;background:rgba(0,0,0,.85);z-index:120;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+  #craft-modal.show{display:flex}
+
+  /* Mods modal */
+  #mods-modal{position:absolute;inset:0;background:rgba(0,0,0,.85);z-index:120;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+  #mods-modal.show{display:flex}
+  #mods-list .mod-row{padding:10px;background:rgba(60,60,80,.3);border-radius:6px;margin-bottom:6px;border:1px solid rgba(255,255,255,.08)}
+  #mods-list .mod-row .mod-head{display:flex;justify-content:space-between;align-items:center}
+  #mods-list .mod-row .mod-name{font-weight:700;color:#7cda24}
+  #mods-list .mod-row .mod-meta{font-size:10px;color:var(--muted);margin-top:2px}
+  #mods-list .mod-row .mod-actions{display:flex;gap:4px}
+  #mods-list .mod-row button{background:#3a3a4a;color:#fff;border:0;padding:4px 10px;font-size:11px;font-weight:700;border-radius:3px;cursor:pointer}
+  #mods-list .mod-row button:hover{background:#4a4a5a}
+  #mods-list .mod-row .mod-export{background:#4a9eff}
+  #mods-list .mod-row .mod-export:hover{background:#5aafff}
+  #mods-list .mod-row .mod-remove{background:#ef4444}
+  #mods-list .mod-row .mod-remove:hover{background:#ff5555}
+  #mods-list .builtin-tag{background:rgba(124,218,36,.2);color:#7cda24;padding:1px 6px;border-radius:3px;font-size:9px;margin-left:6px}
+  .craft-panel{background:rgba(20,20,30,.95);border:2px solid var(--accent2);border-radius:10px;padding:20px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto}
+  .craft-panel h2{margin:0 0 10px;color:var(--accent2)}
+  .craft-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
+  .craft-item{background:rgba(60,60,80,.4);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:8px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .15s}
+  .craft-item:hover{background:rgba(124,218,36,.2);border-color:var(--accent)}
+  .craft-item canvas{width:36px;height:36px;image-rendering:pixelated}
+  .craft-item .info{flex:1;font-size:12px}
+  .craft-item .name{font-weight:700;color:#fff;margin-bottom:2px}
+  .craft-item .recipe{color:var(--muted);font-size:10px}
+
+  /* Achievement popup */
+  #ach-popup{position:absolute;top:120px;right:14px;background:linear-gradient(135deg,rgba(240,192,80,.95),rgba(255,220,120,.95));color:#000;padding:10px 16px;border-radius:6px;font-size:13px;font-weight:700;border:2px solid #fff;opacity:0;transform:translateX(120%);transition:transform .3s,opacity .3s;z-index:85;max-width:280px;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+  #ach-popup.show{opacity:1;transform:translateX(0)}
+  #ach-popup .ach-title{font-size:10px;text-transform:uppercase;letter-spacing:1px;opacity:.7;margin-bottom:2px}
+  #ach-popup .ach-name{font-size:14px}
+  #ach-popup .ach-desc{font-size:11px;font-weight:400;margin-top:2px;opacity:.8}
+
+  /* Day/night overlay tint */
+  #day-tint{position:absolute;inset:0;pointer-events:none;z-index:3;transition:background 1s linear}
+  #day-tint.dawn{background:rgba(255,180,100,0.1)}
+  #day-tint.day{background:transparent}
+  #day-tint.dusk{background:rgba(255,120,80,0.18)}
+  #day-tint.night{background:rgba(20,30,80,0.35)}
+
+  /* Damage flash */
+  #hurt-flash{position:absolute;inset:0;background:radial-gradient(ellipse at center, transparent 40%, rgba(255,0,0,0.4) 100%);opacity:0;pointer-events:none;z-index:7;transition:opacity .15s}
+  #hurt-flash.show{opacity:1}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="crosshair"></div>
+  <div id="info">
+    <b>🟢 MiniCraft 3D</b><br>
+    FPS: <span id="fps">0</span><br>
+    XYZ: <span id="pos">0,0,0</span><br>
+    Block: <span id="bname">-</span>
+  </div>
+  <div id="debug">
+    Seed: <span id="dseed">-</span><br>
+    Faces: <span id="dfaces">0</span><br>
+    Vertices: <span id="dverts">0</span><br>
+    <span id="dchunk">-</span>
+  </div>
+  <div id="hud-time"><span class="time-icon" id="time-icon">☀️</span><span id="time-text">เที่ยง</span></div>
+  <div id="hud-hp" title="หัวใจ"></div>
+  <div id="hud-hunger" title="ความหิว"></div>
+  <div id="minimap"><canvas id="mmcanvas" width="120" height="120"></canvas></div>
+  <div id="selected-preview">บล็อก: <span id="sel-name">หญ้า</span></div>
+  <div id="hotbar"></div>
+</div>
+<div id="day-tint" class="day"></div>
+<div id="hurt-flash"></div>
+<div id="ach-popup">
+  <div class="ach-title">🏆 ความสำเร็จ</div>
+  <div class="ach-name" id="ach-name">-</div>
+  <div class="ach-desc" id="ach-desc">-</div>
+</div>
+
+<div id="start-screen">
+  <h1>⛏ MiniCraft 3D <span style="font-size:24px;color:#4a9eff">ONLINE</span></h1>
+  <div class="sub">เกมมายคราฟสามมิติ — เล่นเดี่ยวออฟไลน์ หรือเล่นออนไลน์กับเพื่อน (สูงสุด 8 คน)</div>
+
+  <div class="panel">
+    <h3>⌨️ วิธีเล่น</h3>
+    <div class="row"><span>เดิน</span><span class="key">W A S D</span></div>
+    <div class="row"><span>กระโดด</span><span class="key">Space</span></div>
+    <div class="row"><span>วิ่ง</span><span class="key">Shift</span></div>
+    <div class="row"><span>หมุนกล้อง</span><span class="key">เมาส์</span></div>
+    <div class="row"><span>ทุบบล็อก</span><span class="key">คลิกซ้าย</span></div>
+    <div class="row"><span>วางบล็อก</span><span class="key">คลิกขวา</span></div>
+    <div class="row"><span>เลือกบล็อก</span><span class="key">1 - 8</span></div>
+    <div class="row"><span>เลื่อนบล็อก</span><span class="key">ลูกกลิ้งเมาส์</span></div>
+    <div class="row"><span>บิน / ลง</span><span class="key">F (โหมดบิน)</span></div>
+    <div class="row"><span>แชท (ออนไลน์)</span><span class="key">T</span></div>
+    <div class="row"><span>หยุดเกม</span><span class="key">Esc</span></div>
+  </div>
+
+  <div class="seed-display" id="seed-display">Seed: -</div>
+  <div class="actions">
+    <button id="btn-play">▶ เริ่มเล่นเดี่ยว</button>
+    <button id="btn-load" class="alt">📂 โหลดเซฟ</button>
+    <button id="btn-mp-host" style="background:#4a9eff;box-shadow:0 4px 0 #2a5e9f">🌐 สร้างห้องออนไลน์</button>
+    <button id="btn-mp-join" style="background:#7cda24;box-shadow:0 4px 0 #4a8a14">🔑 เข้าห้อง (มีรหัส)</button>
+    <button id="btn-mods" style="background:#a855f7;box-shadow:0 4px 0 #6b21a8">📦 Mods <span id="mod-count" style="font-size:10px;opacity:.8">(1)</span></button>
+  </div>
+  <div id="mp-panel">
+    <h3 id="mp-panel-title">🌐 สร้างห้องออนไลน์</h3>
+    <div class="mp-info" id="mp-info">กดปุ่มด้านล่างเพื่อสร้างห้อง แล้วแชร์รหัส 4 ตัวให้เพื่อน</div>
+    <div class="code-display" id="mp-code" style="display:none">ABCD</div>
+    <input type="text" class="code-input" id="mp-code-input" maxlength="4" placeholder="XXXX" style="display:none" />
+    <div class="mp-info" id="mp-room-info" style="display:none"></div>
+    <div class="mp-buttons">
+      <button id="btn-mp-action">สร้าง</button>
+      <button class="mp-back" id="btn-mp-back">ยกเลิก</button>
+    </div>
+  </div>
+  <div class="credit">Vanilla WebGL · ไม่มี dependency · Multiplayer via WebSocket · Server: 103.253.75.161:3109</div>
+</div>
+
+<!-- MP UI overlays -->
+<div id="mp-status">สถานะ: <span id="mp-status-text">กำลังเชื่อมต่อ...</span></div>
+<div id="mp-players" style="display:none">
+  <h4>👥 ผู้เล่น <span id="mp-player-count">0</span>/8</h4>
+  <div id="mp-player-list"></div>
+</div>
+<button id="chat-toggle">💬 แชท</button>
+<div id="mp-chat">
+  <h4>💬 แชท <span style="color:#888;font-weight:400">[T]</span></h4>
+  <div class="chat-log" id="chat-log"></div>
+  <input type="text" id="chat-input" placeholder="พิมพ์ข้อความ... (Enter)" maxlength="200" />
+</div>
+
+<!-- Mod Manager modal (button "Mods") -->
+<div id="mods-modal">
+  <div class="craft-panel" style="max-width:780px">
+    <button class="inv-close" id="mods-close">✕</button>
+    <h2>📦 Mod Manager</h2>
+    <p style="color:var(--muted);font-size:12px;margin:4px 0 14px">ติดตั้ง mod เพื่อเพิ่มบล็อก/ไอเทม/สูตรคราฟต์ใหม่ • Mods เก็บใน localStorage</p>
+    <div id="mods-stats" style="background:rgba(0,0,0,.4);padding:8px 12px;border-radius:6px;margin-bottom:10px;font-size:12px;border:1px solid rgba(255,255,255,.1)"></div>
+    <div id="mods-list" style="max-height:300px;overflow-y:auto;margin-bottom:10px"></div>
+    <h3 style="color:#7cda24;margin:10px 0 6px;font-size:14px">➕ เพิ่ม Mod ใหม่</h3>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <input type="text" id="mod-name-input" placeholder="ชื่อ mod" style="flex:1;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:6px 10px;border-radius:4px;font-size:12px" />
+      <input type="text" id="mod-url-input" placeholder="URL ของ mod.json (ไม่บังคับ)" style="flex:2;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:6px 10px;border-radius:4px;font-size:12px" />
+    </div>
+    <textarea id="mod-json-input" placeholder='{"id":"my_mod","name":"My Mod","version":"1.0","author":"Me","items":[...],"recipes":[...]}' style="width:100%;height:80px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:6px 10px;border-radius:4px;font-size:11px;font-family:monospace;resize:vertical"></textarea>
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+      <button id="btn-install-mod" style="background:#7cda24;color:#000;border:0;padding:8px 16px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">📥 ติดตั้ง (Install)</button>
+      <button id="btn-install-mod-url" style="background:#4a9eff;color:#000;border:0;padding:8px 16px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">🌐 ติดตั้งจาก URL</button>
+      <button id="btn-load-sample-mod" style="background:#a855f7;color:#fff;border:0;padding:8px 16px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">📝 โหลดตัวอย่าง</button>
+    </div>
+    <details style="margin-top:14px">
+      <summary style="cursor:pointer;color:var(--accent2);font-size:12px">📖 วิธีสร้าง Mod</summary>
+      <pre style="background:rgba(0,0,0,.4);padding:10px;border-radius:4px;font-size:10px;overflow-x:auto;color:#7cda24;margin-top:8px;line-height:1.5">{
+  "id": "ruby_mod",          // ต้องไม่ซ้ำกับ mod อื่น
+  "name": "Ruby Mod",          // ชื่อที่แสดง
+  "version": "1.0.0",          // optional
+  "author": "You",             // optional
+  "items": [
+    { "id": "ruby", "name": "ทับทิม", "color": "#c83030", "shape": "gem" }
+  ],
+  "recipes": [
+    {
+      "id": "ruby_pickaxe",
+      "name": "พลั่วทับทิม",
+      "category": "tools",
+      "result": { "name": "ruby_pickaxe", "count": 1 },
+      "ingredients": [
+        { "name": "ruby", "count": 3 },
+        { "name": "stick", "count": 2 }
+      ]
+    }
+  ]
+}
+# shapes: gem, ingot, stick, powder, food, leather, tool_pickaxe, tool_sword, potion, coin
+# categories: basic, tools, building, food, other
+# block: 'block:N' where N is block ID (0-29)</pre>
+    </details>
+  </div>
+</div>
+
+<div id="pause">
+  <h2>⏸ หยุดชั่วคราว</h2>
+  <p>กด Esc เพื่อเล่นต่อ</p>
+  <button id="btn-resume">▶ เล่นต่อ</button>
+</div>
+
+<!-- Inventory modal (E key) -->
+<div id="inv-modal">
+  <div class="inv-panel">
+    <button class="inv-close" id="inv-close">✕</button>
+    <h2>🎒 คลังของ</h2>
+    <p style="color:var(--muted);font-size:12px;margin:4px 0 14px">คลิกขวาเพื่อใช้ของ • คลิกซ้ายเพื่อเลือก</p>
+    <div id="inv-content"></div>
+  </div>
+</div>
+
+<!-- Crafting modal (C key) -->
+<div id="craft-modal">
+  <div class="craft-panel">
+    <button class="inv-close" id="craft-close">✕</button>
+    <h2>🔨 คราฟต์ของ</h2>
+    <p style="color:var(--muted);font-size:12px;margin:4px 0 14px">คลิกเพื่อคราฟต์ (ต้องมีของครบในคลัง)</p>
+    <div id="craft-content" class="craft-grid"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ======================================================================
+// CONFIG
+// ======================================================================
+const CFG = {
+  WORLD_W: 64,
+  WORLD_D: 64,
+  WORLD_H: 36,
+  SEA_LEVEL: 12,
+  GRAVITY: -28,
+  JUMP_VEL: 9.5,
+  WALK_SPEED: 4.8,
+  RUN_SPEED: 8.2,
+  FLY_SPEED: 12,
+  PLAYER_W: 0.6,
+  PLAYER_H: 1.75,
+  PLAYER_EYE: 1.55,
+  REACH: 6.0,
+  ATLAS: 8,        // 8 cols x 4 rows = 32 textures
+  ATLAS_H: 4,      // height in tiles
+  TILE: 16,        // each tile 16x16
+  MOUSE_SENS: 0.0022,
+  // Tier 1: day/night
+  DAY_LENGTH_SEC: 600,         // 10 minutes per full day
+  NIGHT_START: 0.5,            // fraction of day when night begins
+  NIGHT_END: 0.85,             // fraction of day when night ends
+  // Tier 1: survival
+  MAX_HP: 20,
+  FALL_DAMAGE_THRESHOLD: 4,    // blocks fallen before damage
+  HUNGER_DECAY: 1 / 1200,      // hunger bar / sec
+  STARVE_DAMAGE: 1,            // hp/sec when starving
+  MOB_HOSTILE_DAMAGE: 1,       // hp per hit
+  // Tier 1: mob
+  MAX_MOBS: 30,
+  MOB_SPAWN_RADIUS: 20,
+  MOB_DESPAWN_RADIUS: 40,
+  MOB_AGGRO_RADIUS: 12,
+  MOB_DAMAGE_COOLDOWN: 1.0,    // sec between hits
+  // Tier 3: redstone
+  POWER_RANGE: 8,
+};
+
+// Forward declarations for new systems (avoids TDZ errors from later init code)
+let hunger = 20;
+const MAX_HUNGER = 20;
+let gameTime = 6000;
+let mobs = [];
+let inventory = [];
+let unlockedAch = new Set();
+const stats = {
+  stepsWalked: 0, blocksPlaced: 0, blocksBroken: {},
+  nightsSurvived: 0, crafted: 0, maxDistance: 0,
+  mobsKilled: 0, diamondsFound: 0, doorsPlaced: 0,
+  spawnX: 24, spawnZ: 24, lastWasNight: false,
+};
+// MOB_TYPES, ITEMS, RECIPES, ACHIEVEMENTS forward-declared (defined later, used by init)
+const MOB_TYPES = {
+  pig:    { hp: 10, w: 0.9, h: 0.9, hostile: false, color: [0.9, 0.7, 0.7], drops: 'pork' },
+  cow:    { hp: 12, w: 0.9, h: 1.0, hostile: false, color: [0.4, 0.25, 0.15], drops: 'leather' },
+  zombie: { hp: 16, w: 0.6, h: 1.85, hostile: true, color: [0.3, 0.55, 0.3], drops: 'rotten_flesh' },
+  creeper:{ hp: 14, w: 0.6, h: 1.7, hostile: true, color: [0.3, 0.7, 0.3], drops: 'gunpowder' },
+};
+
+// Block IDs (16 base + 16 expansion = 32 total in 8x4 atlas)
+const B = {
+  AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, SAND: 4,
+  WOOD: 5, LEAVES: 6, PLANKS: 7, COBBLE: 8,
+  BEDROCK: 9, SNOW: 10, BRICK: 11, PUMPKIN: 12,
+  WATER: 13,
+  // Tier 1 additions
+  GLASS: 14, TORCH: 15, DOOR: 16, CACTUS: 17,
+  SANDSTONE: 18, ICE: 19, ORE_COAL: 20, ORE_IRON: 21,
+  ORE_GOLD: 22, ORE_DIAMOND: 23, GLOWSTONE: 24, CRAFTING_TABLE: 25,
+  LEVER: 26, PRESSURE_PLATE: 27, FLOWER: 28, SAPLING: 29
+};
+
+const TRANSPARENT = new Set([B.AIR, B.WATER, B.LEAVES, B.GLASS, B.FLOWER, B.SAPLING, B.ICE]);
+
+// Atlas is 8x4 = 32 tiles (16 base + 16 new). Each tile still 16x16 = 128x64 atlas
+const ATLAS_W = CFG.ATLAS, ATLAS_H = CFG.ATLAS_H;
+
+// Atlas tile index for each block face
+// [top, side, bottom]
+const FACE_TEX = {
+  [B.GRASS]:    [1, 0, 2],
+  [B.DIRT]:     [2, 2, 2],
+  [B.STONE]:    [3, 3, 3],
+  [B.SAND]:     [4, 4, 4],
+  [B.WOOD]:     [5, 5, 5],
+  [B.LEAVES]:   [7, 7, 7],
+  [B.PLANKS]:   [8, 8, 8],
+  [B.COBBLE]:   [9, 9, 9],
+  [B.BEDROCK]:  [10, 10, 10],
+  [B.SNOW]:     [11, 11, 11],
+  [B.BRICK]:    [12, 12, 12],
+  [B.PUMPKIN]:  [13, 14, 13],
+  [B.WATER]:    [15, 15, 15],
+  [B.GLASS]:    [16, 16, 16],
+  [B.TORCH]:    [17, 17, 17],
+  [B.DOOR]:     [19, 18, 19],
+  [B.CACTUS]:   [20, 20, 20],
+  [B.SANDSTONE]:[21, 21, 21],
+  [B.ICE]:      [22, 22, 22],
+  [B.ORE_COAL]: [3, 23, 3],
+  [B.ORE_IRON]: [3, 24, 3],
+  [B.ORE_GOLD]: [3, 25, 3],
+  [B.ORE_DIAMOND]:[3, 26, 3],
+  [B.GLOWSTONE]:[27, 27, 27],
+  [B.CRAFTING_TABLE]:[28, 29, 28],
+  [B.LEVER]:    [30, 30, 30],
+  [B.PRESSURE_PLATE]:[31, 31, 31],
+  [B.FLOWER]:   [6, 6, 6],
+  [B.SAPLING]:  [6, 6, 6],
+};
+
+const BLOCK_NAMES = {
+  [B.GRASS]:'หญ้า', [B.DIRT]:'ดิน', [B.STONE]:'หิน', [B.SAND]:'ทราย',
+  [B.WOOD]:'ไม้', [B.LEAVES]:'ใบไม้', [B.PLANKS]:'ไม้แปรรูป', [B.COBBLE]:'หินก่อ',
+  [B.BEDROCK]:'หินฐาน', [B.SNOW]:'หิมะ', [B.BRICK]:'อิฐ', [B.PUMPKIN]:'ฟักทอง',
+  [B.WATER]:'น้ำ', [B.GLASS]:'กระจก', [B.TORCH]:'คบไฟ', [B.DOOR]:'ประตู',
+  [B.CACTUS]:'กระบองเพชร', [B.SANDSTONE]:'หินทราย', [B.ICE]:'น้ำแข็ง',
+  [B.ORE_COAL]:'แร่ถ่าน', [B.ORE_IRON]:'แร่เหล็ก', [B.ORE_GOLD]:'แร่ทอง',
+  [B.ORE_DIAMOND]:'แร่เพชร', [B.GLOWSTONE]:'หินเรืองแสง', [B.CRAFTING_TABLE]:'โต๊ะคราฟต์',
+  [B.LEVER]:'คาน', [B.PRESSURE_PLATE]:'แผ่นเหยียบ',
+  [B.FLOWER]:'ดอกไม้', [B.SAPLING]:'ต้นกล้า'
+};
+
+// Hotbar order
+const HOTBAR = [B.GRASS, B.DIRT, B.STONE, B.SAND, B.WOOD, B.PLANKS, B.COBBLE, B.BRICK];
+
+// ======================================================================
+// SAVE SYSTEM
+// ======================================================================
+const SAVE_KEY = 'minicraft3d_v1';
+let currentSeed = Date.now() & 0x7fffffff;
+let dirty = false;
+
+function saveGame() {
+  try {
+    const data = {
+      v: 2,  // save version
+      seed: currentSeed,
+      px: player.x, py: player.y, pz: player.z,
+      yaw: player.yaw, pitch: player.pitch,
+      fly: player.flyMode,
+      hp: player.hp,
+      world: Array.from(world),
+      meta: Array.from(meta),
+      sel: selectedSlot,
+      inv: inventory,
+      hung: hunger,
+      time: gameTime,
+      ach: Array.from(unlockedAch),
+      stat: {
+        steps: stats.stepsWalked,
+        placed: stats.blocksPlaced,
+        broken: stats.blocksBroken,
+        nights: stats.nightsSurvived,
+        crafted: stats.crafted,
+        maxDist: stats.maxDistance,
+        mobs: stats.mobsKilled,
+        dia: stats.diamondsFound,
+        doors: stats.doorsPlaced,
+      },
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch(e) { toast('❌ บันทึกไม่ได้: ' + e.message); }
+}
+
+function loadGame() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
+
+function hasSave() { return !!localStorage.getItem(SAVE_KEY); }
+
+// ======================================================================
+// PROCEDURAL TEXTURE ATLAS
+// ======================================================================
+function makeAtlas() {
+  const c = document.createElement('canvas');
+  c.width = CFG.ATLAS * CFG.TILE;
+  c.height = CFG.ATLAS_H * CFG.TILE;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  // Fill entire atlas with opaque white so any unfilled pixels are visible (not transparent)
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, c.width, c.height);
+
+  // Helper: tile rect
+  const tile = (idx, fn) => {
+    const tx = (idx % CFG.ATLAS) * CFG.TILE;
+    const ty = Math.floor(idx / CFG.ATLAS) * CFG.TILE;
+    ctx.save();
+    ctx.translate(tx, ty);
+    fn(ctx, CFG.TILE, CFG.TILE);
+    ctx.restore();
+  };
+
+  // Pseudo-random with seed
+  let s = currentSeed >>> 0;
+  const rand = () => { s = (s * 1664525 + 1013904223) >>> 0; return (s & 0xffffff) / 0xffffff; };
+
+  const px = (ctx, x, y, c) => { ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1); };
+  const noise = (x, y, salt = 0) => {
+    let n = (x * 374761393 + y * 668265263 + salt * 1610612741) | 0;
+    n = (n ^ (n >>> 13)) * 1274126177;
+    return ((n ^ (n >>> 16)) >>> 0) / 0xffffffff;
+  };
+  const vnoise = (x, y, salt) => {
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const xf = x - xi, yf = y - yi;
+    const u = xf*xf*(3-2*xf), v = yf*yf*(3-2*yf);
+    const a = noise(xi, yi, salt), b = noise(xi+1, yi, salt);
+    const c2 = noise(xi, yi+1, salt), d = noise(xi+1, yi+1, salt);
+    return a + (b-a)*u + (c2-a)*v + (a-b-c2+d)*u*v;
+  };
+
+  // Tile 0: grass-dirt side (top green strip, bottom brown)
+  tile(0, (ctx, w, h) => {
+    // base — smooth color zones
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (y < 3) {
+        // grass top strip (3 rows of solid green)
+        px(ctx, x, y, '#5fb02a');
+      } else {
+        // dirt — smooth variation
+        const g = vnoise(x*0.3, y*0.3, 2);
+        const r = 122 + g*20, gg = 87 + g*18, b = 56 + g*14;
+        px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+      }
+    }
+    // a few darker grass tufts hanging down from the green strip
+    for (let i = 0; i < 4; i++) {
+      const x = (rand()*w)|0;
+      px(ctx, x, 3, '#4a8a1e');
+    }
+  });
+
+  // Tile 1: grass top — smooth lush green
+  tile(1, (ctx, w, h) => {
+    // base solid green with subtle low-frequency variation
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.15, y*0.15, 3);
+      const r = 60 + g*25, gg = 140 + g*30, b = 35 + g*15;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    // tiny darker speckles (grass clumps) — only ~8 of them, not 18
+    for (let i = 0; i < 8; i++) {
+      const x = (rand()*w)|0, y = (rand()*h)|0;
+      px(ctx, x, y, '#4a8a1e');
+    }
+    // a few brighter highlights
+    for (let i = 0; i < 4; i++) {
+      const x = (rand()*w)|0, y = (rand()*h)|0;
+      px(ctx, x, y, '#7ec838');
+    }
+  });
+
+  // Tile 2: dirt
+  tile(2, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.8, y*0.8, 4);
+      const r = 105 + g*35, gg = 70 + g*30, b = 40 + g*20;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    for (let i = 0; i < 20; i++) {
+      const x = (rand()*w)|0, y = (rand()*h)|0;
+      px(ctx, x, y, rand() > 0.5 ? '#6e4a25' : '#8c6438');
+    }
+  });
+
+  // Tile 3: stone
+  tile(3, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.5, y*0.5, 5);
+      const r = 110 + g*40, gg = 110 + g*40, b = 115 + g*40;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    for (let i = 0; i < 25; i++) {
+      const x = (rand()*w)|0, y = (rand()*h)|0;
+      px(ctx, x, y, rand() > 0.5 ? '#5a5a5e' : '#c8c8cc');
+    }
+  });
+
+  // Tile 4: sand
+  tile(4, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.7, y*0.7, 6);
+      const r = 215 + g*25, gg = 195 + g*25, b = 130 + g*30;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    for (let i = 0; i < 15; i++) {
+      const x = (rand()*w)|0, y = (rand()*h)|0;
+      px(ctx, x, y, rand() > 0.5 ? '#d4b870' : '#fff0c0');
+    }
+  });
+
+  // Tile 5: wood side (bark)
+  tile(5, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.3, y*0.3, 7);
+      const r = 75 + g*40, gg = 50 + g*25, b = 25 + g*15;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    // bark lines
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const stripe = (Math.sin(y*0.8 + Math.sin(x*0.1)*2) + 1) * 0.5;
+      if (stripe > 0.7) px(ctx, x, y, '#3a2410');
+    }
+  });
+
+  // Tile 6: wood top (rings)
+  tile(6, (ctx, w, h) => {
+    ctx.fillStyle = '#9c7038';
+    ctx.fillRect(0, 0, w, h);
+    const cx = w/2, cy = h/2;
+    for (let r = 1; r < 8; r++) {
+      ctx.strokeStyle = r % 2 ? '#6a4820' : '#b88848';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      const segs = 16;
+      for (let i = 0; i <= segs; i++) {
+        const a = (i / segs) * Math.PI * 2;
+        const rr = r + Math.sin(a*3 + r)*0.3;
+        const x = cx + Math.cos(a)*rr*1.2;
+        const y = cy + Math.sin(a)*rr;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  });
+
+  // Tile 7: leaves
+  tile(7, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.9, y*0.9, 8);
+      const r = 35 + g*40, gg = 95 + g*60, b = 25 + g*25;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    for (let i = 0; i < 30; i++) {
+      const x = (rand()*w)|0, y = (rand()*h)|0;
+      px(ctx, x, y, rand() > 0.5 ? '#4ea228' : '#0a3a08');
+    }
+  });
+
+  // Tile 8: planks
+  tile(8, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.4, y*0.4, 9);
+      const r = 175 + g*30, gg = 130 + g*30, b = 75 + g*25;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    // plank lines
+    ctx.strokeStyle = '#6a4818';
+    ctx.lineWidth = 1;
+    for (let y = 4; y < h; y += 4) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+    for (let x = 0; x < w; x += 8) {
+      const yy = ((x/8)|0) * 4;
+      ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x, yy+4); ctx.stroke();
+    }
+  });
+
+  // Tile 9: cobblestone
+  tile(9, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.6, y*0.6, 10);
+      const r = 100 + g*45, gg = 100 + g*45, b = 105 + g*45;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    // stone borders
+    ctx.strokeStyle = '#3a3a3e';
+    for (let i = 0; i < 5; i++) {
+      const y = (i*4) % h;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+    for (let i = 0; i < 4; i++) {
+      const x = (i*5 + (i%2)*2) % w;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+  });
+
+  // Tile 10: bedrock
+  tile(10, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.5, y*0.5, 11);
+      const r = 35 + g*30, gg = 35 + g*30, b = 40 + g*30;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    for (let i = 0; i < 30; i++) {
+      const x = (rand()*w)|0, y = (rand()*h)|0;
+      px(ctx, x, y, rand() > 0.5 ? '#1a1a1e' : '#707075');
+    }
+  });
+
+  // Tile 11: snow
+  tile(11, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.6, y*0.6, 12);
+      const v = 235 + g*20;
+      px(ctx, x, y, `rgb(${v|0},${(v+2)|0},${(v+5)|0})`);
+    }
+    for (let i = 0; i < 12; i++) {
+      const x = (rand()*w)|0, y = (rand()*h)|0;
+      px(ctx, x, y, '#ffffff');
+    }
+  });
+
+  // Tile 12: brick
+  tile(12, (ctx, w, h) => {
+    ctx.fillStyle = '#8a3a20';
+    ctx.fillRect(0, 0, w, h);
+    for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
+      const g = vnoise(xx*0.5, yy*0.5, 13);
+      const r = 140 + g*30;
+      if (g < 0.3) px(ctx, xx, yy, '#5a2010');
+    }
+    ctx.fillStyle = '#3a1a08';
+    for (let yy = 0; yy < h; yy += 4) ctx.fillRect(0, yy, w, 1);
+    for (let xx = 0; xx < w; xx += 8) {
+      const off = (Math.floor(xx/8) % 2) ? 4 : 0;
+      ctx.fillRect(((xx+off)%w), 0, 1, h);
+    }
+  });
+
+  // Tile 13: pumpkin top
+  tile(13, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.6, y*0.6, 14);
+      const r = 220 + g*25, gg = 130 + g*30, b = 30 + g*20;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+  });
+
+  // Tile 14: pumpkin side (with face)
+  tile(14, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.6, y*0.6, 15);
+      const r = 215 + g*30, gg = 125 + g*30, b = 25 + g*20;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    // vertical ridges
+    for (let x = 2; x < w; x += 5) {
+      for (let y = 0; y < h; y++) {
+        if (x < w) {
+          const cur = ctx.getImageData(((x%w)*1), y, 1, 1).data;
+          // darker
+          px(ctx, x, y, `rgb(${cur[0]*0.6|0},${cur[1]*0.6|0},${cur[2]*0.6|0})`);
+        }
+      }
+    }
+    // face: eyes & mouth
+    ctx.fillStyle = '#1a0a00';
+    ctx.fillRect(4, 5, 3, 3); ctx.fillRect(9, 5, 3, 3);
+    ctx.fillRect(3, 10, 10, 2); ctx.fillRect(4, 9, 1, 1); ctx.fillRect(11, 9, 1, 1);
+  });
+
+  // Tile 15: water (translucent blue)
+  tile(15, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.6, y*0.6, 16);
+      const r = 30 + g*25, gg = 90 + g*40, b = 180 + g*50;
+      // Use rgba with alpha < 1 for transparency
+      ctx.fillStyle = `rgba(${r|0},${gg|0},${b|0},0.7)`;
+      ctx.fillRect(x, y, 1, 1);
+    }
+    // wave highlights
+    for (let i = 0; i < 12; i++) {
+      const x = (rand()*w)|0, y = (rand()*h)|0;
+      ctx.fillStyle = 'rgba(160,216,255,0.85)';
+      ctx.fillRect(x, y, 1, 1);
+    }
+  });
+
+  // ============== TIER 1 NEW TILES (16-31) ==============
+
+  // Tile 16: glass (translucent)
+  tile(16, (ctx, w, h) => {
+    // base semi-transparent
+    ctx.fillStyle = 'rgba(200, 220, 240, 0.35)';
+    ctx.fillRect(0, 0, w, h);
+    // border
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, w-1, h-1);
+    // diagonal shine
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillRect(2, 2, 4, 1);
+    ctx.fillRect(3, 3, 3, 1);
+  });
+
+  // Tile 17: torch
+  tile(17, (ctx, w, h) => {
+    // base wood stick
+    ctx.fillStyle = '#8c5a2c';
+    ctx.fillRect(7, 8, 2, 8);
+    // top
+    ctx.fillStyle = '#5a3818';
+    ctx.fillRect(7, 8, 2, 1);
+    // flame (yellow)
+    ctx.fillStyle = '#ffd800';
+    ctx.fillRect(7, 4, 2, 3);
+    ctx.fillStyle = '#ff7a00';
+    ctx.fillRect(7, 6, 2, 1);
+    // outer glow
+    ctx.fillStyle = 'rgba(255,180,40,0.3)';
+    ctx.fillRect(5, 3, 6, 6);
+  });
+
+  // Tile 18: door side (wood planks vertical)
+  tile(18, (ctx, w, h) => {
+    ctx.fillStyle = '#9c6a30';
+    ctx.fillRect(0, 0, w, h);
+    // vertical planks
+    ctx.fillStyle = '#6e4818';
+    for (let x = 0; x < w; x += 4) ctx.fillRect(x, 0, 1, h);
+    // handle
+    ctx.fillStyle = '#3a2410';
+    ctx.fillRect(11, 8, 2, 2);
+    // panels
+    ctx.strokeStyle = '#5a3818';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(2, 3, 4, 5);
+    ctx.strokeRect(8, 3, 4, 5);
+  });
+
+  // Tile 19: door top/bottom (wood end)
+  tile(19, (ctx, w, h) => {
+    ctx.fillStyle = '#8c5a2c';
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#6e4818';
+    for (let y = 0; y < h; y += 2) ctx.fillRect(0, y, w, 1);
+  });
+
+  // Tile 20: cactus
+  tile(20, (ctx, w, h) => {
+    // base green
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.4, y*0.4, 17);
+      const r = 40 + g*30, gg = 110 + g*30, b = 35 + g*15;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    // edges
+    ctx.fillStyle = '#1a4010';
+    ctx.fillRect(0, 0, 1, h);
+    ctx.fillRect(w-1, 0, 1, h);
+    // spines
+    for (let i = 0; i < 6; i++) {
+      const y = (rand()*h)|0;
+      px(ctx, 1, y, '#f0e060');
+      px(ctx, w-2, y, '#f0e060');
+    }
+  });
+
+  // Tile 21: sandstone
+  tile(21, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.5, y*0.5, 18);
+      const r = 200 + g*25, gg = 175 + g*25, b = 105 + g*30;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    // horizontal lines
+    ctx.fillStyle = '#a08850';
+    for (let y = 3; y < h; y += 4) ctx.fillRect(0, y, w, 1);
+  });
+
+  // Tile 22: ice
+  tile(22, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.4, y*0.4, 19);
+      const r = 130 + g*30, gg = 200 + g*25, b = 230 + g*25;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    // cracks
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillRect(2, 4, 3, 1);
+    ctx.fillRect(10, 9, 4, 1);
+    ctx.fillRect(5, 13, 2, 1);
+  });
+
+  // Tile 23: ore coal (on stone)
+  tile(23, (ctx, w, h) => {
+    // stone base
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.5, y*0.5, 5);
+      const r = 110 + g*40, gg = 110 + g*40, b = 115 + g*40;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    // coal chunks (black with slight shine)
+    for (let i = 0; i < 5; i++) {
+      const cx = (rand()*w)|0, cy = (rand()*h)|0;
+      for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) {
+        if (rand() > 0.3) px(ctx, cx+dx, cy+dy, '#0a0a0a');
+      }
+      px(ctx, cx, cy, '#3a3a3a');
+    }
+  });
+
+  // Tile 24: ore iron (stone with tan flecks)
+  tile(24, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.5, y*0.5, 5);
+      const r = 110 + g*40, gg = 110 + g*40, b = 115 + g*40;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    for (let i = 0; i < 5; i++) {
+      const cx = (rand()*w)|0, cy = (rand()*h)|0;
+      for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) {
+        if (rand() > 0.3) px(ctx, cx+dx, cy+dy, '#c8a878');
+      }
+      px(ctx, cx, cy, '#e8d0a0');
+    }
+  });
+
+  // Tile 25: ore gold
+  tile(25, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.5, y*0.5, 5);
+      const r = 110 + g*40, gg = 110 + g*40, b = 115 + g*40;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    for (let i = 0; i < 5; i++) {
+      const cx = (rand()*w)|0, cy = (rand()*h)|0;
+      for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) {
+        if (rand() > 0.3) px(ctx, cx+dx, cy+dy, '#e8c040');
+      }
+      px(ctx, cx, cy, '#fff080');
+    }
+  });
+
+  // Tile 26: ore diamond
+  tile(26, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.5, y*0.5, 5);
+      const r = 110 + g*40, gg = 110 + g*40, b = 115 + g*40;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    for (let i = 0; i < 5; i++) {
+      const cx = (rand()*w)|0, cy = (rand()*h)|0;
+      for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) {
+        if (rand() > 0.3) px(ctx, cx+dx, cy+dy, '#5cd0e8');
+      }
+      px(ctx, cx, cy, '#a0f0ff');
+    }
+  });
+
+  // Tile 27: glowstone
+  tile(27, (ctx, w, h) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = vnoise(x*0.5, y*0.5, 20);
+      const r = 230 + g*20, gg = 200 + g*25, b = 100 + g*30;
+      px(ctx, x, y, `rgb(${r|0},${gg|0},${b|0})`);
+    }
+    // bright spots
+    for (let i = 0; i < 6; i++) {
+      const x = (rand()*w)|0, y = (rand()*h)|0;
+      px(ctx, x, y, '#fff8b0');
+    }
+  });
+
+  // Tile 28: crafting table top
+  tile(28, (ctx, w, h) => {
+    ctx.fillStyle = '#9c6a30';
+    ctx.fillRect(0, 0, w, h);
+    // tools icon (hammer + saw)
+    ctx.fillStyle = '#3a2410';
+    ctx.fillRect(3, 4, 3, 1);  // hammer head
+    ctx.fillRect(5, 5, 1, 2);
+    ctx.fillRect(4, 7, 2, 1);
+    // saw
+    ctx.fillRect(8, 4, 5, 1);
+    ctx.fillRect(8, 5, 1, 2);
+    for (let x = 9; x < 13; x++) ctx.fillRect(x, 7, 1, 1);
+    // grid dots
+    ctx.fillStyle = '#5a3818';
+    px(ctx, 2, 12, '#5a3818'); px(ctx, 6, 12, '#5a3818');
+    px(ctx, 10, 12, '#5a3818'); px(ctx, 13, 12, '#5a3818');
+  });
+
+  // Tile 29: crafting table side
+  tile(29, (ctx, w, h) => {
+    // wood planks
+    ctx.fillStyle = '#8c5a2c';
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#6e4818';
+    for (let y = 0; y < h; y += 4) ctx.fillRect(0, y, w, 1);
+    for (let x = 0; x < w; x += 8) {
+      const off = (Math.floor(x/8) % 2) ? 4 : 0;
+      ctx.fillRect(x, off, 1, 4);
+    }
+    // drawer handles
+    ctx.fillStyle = '#3a2410';
+    ctx.fillRect(6, 4, 4, 1);
+    ctx.fillRect(6, 9, 4, 1);
+  });
+
+  // Tile 30: lever
+  tile(30, (ctx, w, h) => {
+    // base plate
+    ctx.fillStyle = '#5a3818';
+    ctx.fillRect(5, 8, 6, 4);
+    // stick
+    ctx.fillStyle = '#8c5a2c';
+    ctx.fillRect(7, 6, 2, 2);
+    // knob
+    ctx.fillStyle = '#c84020';
+    ctx.fillRect(7, 4, 2, 2);
+  });
+
+  // Tile 31: pressure plate
+  tile(31, (ctx, w, h) => {
+    // flat gold plate
+    ctx.fillStyle = '#e8c040';
+    ctx.fillRect(1, 6, 14, 4);
+    ctx.fillStyle = '#fff080';
+    ctx.fillRect(2, 7, 12, 1);
+    ctx.fillStyle = '#a08020';
+    ctx.fillRect(1, 9, 14, 1);
+  });
+
+  return c;
+}
+
+// ======================================================================
+// WORLD GENERATION
+// ======================================================================
+const W = CFG.WORLD_W, D = CFG.WORLD_D, H = CFG.WORLD_H;
+const world = new Uint8Array(W * D * H);
+const meta = new Uint8Array(W * D * H); // light, etc.
+
+function idx(x, y, z) { return x + y*W + z*W*D; }
+function inBounds(x, y, z) { return x>=0 && x<W && y>=0 && y<H && z>=0 && z<D; }
+function getBlock(x, y, z) {
+  if (!inBounds(x, y, z)) return B.AIR;
+  return world[idx(x, y, z)];
+}
+function setBlock(x, y, z, t) {
+  if (!inBounds(x, y, z)) return;
+  world[idx(x, y, z)] = t;
+  dirty = true;
+}
+
+function vnoise2(x, y, salt) {
+  let n = ((x|0) * 374761393 + (y|0) * 668265263 + salt * 1610612741) | 0;
+  n = (n ^ (n >>> 13)) * 1274126177;
+  return ((n ^ (n >>> 16)) >>> 0) / 0xffffffff;
+}
+function smooth2(x, y, salt) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  const xf = x - xi, yf = y - yi;
+  const u = xf*xf*(3-2*xf), v = yf*yf*(3-2*yf);
+  const a = vnoise2(xi, yi, salt), b = vnoise2(xi+1, yi, salt);
+  const c2 = vnoise2(xi, yi+1, salt), d = vnoise2(xi+1, yi+1, salt);
+  return a + (b-a)*u + (c2-a)*v + (a-b-c2+d)*u*v;
+}
+function fbm(x, y, octaves, salt) {
+  let amp = 1, freq = 1, sum = 0, max = 0;
+  for (let i = 0; i < octaves; i++) {
+    sum += smooth2(x*freq, y*freq, salt+i) * amp;
+    max += amp;
+    amp *= 0.5;
+    freq *= 2;
+  }
+  return sum / max;
+}
+
+function generateWorld(seed) {
+  currentSeed = seed;
+  world.fill(0);
+  meta.fill(0);
+  // meta: 0=default, bit 0=powered (redstone), bit 1=door-open, bit 2=lever-on
+  biomeMap = new Uint8Array(W * D); // 0=plains, 1=forest, 2=desert, 3=snow, 4=mountain, 5=ocean
+
+  const S = seed;
+  for (let z = 0; z < D; z++) {
+    for (let x = 0; x < W; x++) {
+      // Base terrain height - allow lower areas (below sea level) and higher hills
+      const h1 = fbm(x*0.06, z*0.06, 4, S) * 22 + 4;  // range ~4-26
+      const h2 = fbm(x*0.18, z*0.18, 2, S+99) * 3;
+      let height = Math.floor(h1 + h2);
+      height = Math.max(1, Math.min(H-6, height));
+
+      // Temperature/moisture for biome
+      const temp = fbm(x*0.04, z*0.04, 2, S+777);
+      const moisture = fbm(x*0.05, z*0.05, 2, S+1234);
+
+      // Determine biome
+      let biome = 0; // plains
+      if (height < CFG.SEA_LEVEL + 1) biome = 5; // ocean
+      else if (height > 22 && temp < 0.5) biome = 4; // mountain
+      else if (temp < 0.3) biome = 3; // snow
+      else if (temp > 0.7 && moisture < 0.4) biome = 2; // desert
+      else if (moisture > 0.65) biome = 1; // forest
+      biomeMap[x + z*W] = biome;
+
+      for (let y = 0; y < H; y++) {
+        let b = B.AIR;
+        if (y === 0) b = B.BEDROCK;
+        else if (y < height - 4) {
+          b = B.STONE;
+          // Ores in stone layer
+          if (y >= 2 && y < height - 5) {
+            const oreR = vnoise2(x, y*3 + z, S+8888);
+            if (oreR > 0.985) b = B.ORE_DIAMOND;
+            else if (oreR > 0.965) b = B.ORE_GOLD;
+            else if (oreR > 0.94) b = B.ORE_IRON;
+            else if (oreR > 0.91) b = B.ORE_COAL;
+          }
+        }
+        else if (y < height - 1) {
+          // near surface
+          if (y < CFG.SEA_LEVEL - 1) b = B.SAND;
+          else b = B.DIRT;
+        }
+        else if (y === height - 1) {
+          // surface block - biome dependent
+          if (height <= CFG.SEA_LEVEL + 1) b = B.SAND;
+          else if (biome === 3) b = B.SNOW;  // snow
+          else if (biome === 2) b = B.SAND;  // desert surface
+          else if (biome === 4 && y > 20) b = B.STONE; // mountain top
+          else b = B.GRASS;
+        }
+        // Fill water from terrain up to sea level
+        else if (y > height - 1 && y <= CFG.SEA_LEVEL) {
+          b = B.WATER;
+          // ice on top in snow biome
+          if (biome === 3 && y === CFG.SEA_LEVEL) b = B.ICE;
+        }
+        world[idx(x, y, z)] = b;
+      }
+    }
+  }
+
+  // Decorate: trees, cacti, etc. based on biome
+  for (let z = 2; z < D-2; z++) {
+    for (let x = 2; x < W-2; x++) {
+      const biome = biomeMap[x + z*W];
+      for (let y = H-1; y > 0; y--) {
+        const surface = getBlock(x, y, z);
+        if (surface === B.AIR) continue;
+        if (surface === B.GRASS) {
+          const treeR = vnoise2(x*1.7, z*1.7, S+5000);
+          if (biome === 1 && treeR > 0.92) plantTree(x, y+1, z);  // forest = dense
+          else if (biome === 0 && treeR > 0.985) plantTree(x, y+1, z);  // plains = sparse
+        }
+        if (surface === B.SAND && biome === 2 && y > CFG.SEA_LEVEL + 1) {
+          // desert cactus
+          const cacR = vnoise2(x*2.1, z*2.1, S+6000);
+          if (cacR > 0.985) plantCactus(x, y+1, z);
+        }
+        break;
+      }
+    }
+  }
+
+  // Generate structures
+  generateStructures(S);
+}
+
+function plantCactus(x, y, z) {
+  const h = 2 + ((vnoise2(x, z, 200) * 2) | 0);
+  for (let i = 0; i < h; i++) {
+    if (inBounds(x, y+i, z)) setBlock(x, y+i, z, B.CACTUS);
+  }
+}
+
+let biomeMap = new Uint8Array(1);
+
+function generateStructures(S) {
+  // Villages - place 2-3 small houses
+  const houseCount = 2 + (S % 2);
+  for (let h = 0; h < houseCount; h++) {
+    const hx = 8 + ((S * (h+1) * 7) % (W - 16));
+    const hz = 8 + ((S * (h+1) * 11) % (D - 16));
+    // find grass surface
+    for (let y = H-1; y > 0; y--) {
+      if (getBlock(hx, y, hz) === B.GRASS) {
+        buildHouse(hx, y+1, hz, h % 4);
+        break;
+      }
+    }
+  }
+}
+
+function buildHouse(cx, y, cz, rot) {
+  // 5x5x4 house: cobble base, wood walls, planks roof, door
+  const W2 = 5, D2 = 5, H2 = 4;
+  for (let dy = 0; dy < H2; dy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      for (let dz = -2; dz <= 2; dz++) {
+        const x = cx + dx, z = cz + dz;
+        if (!inBounds(x, y+dy, z)) continue;
+        const isEdge = Math.abs(dx) === 2 || Math.abs(dz) === 2;
+        if (dy === 0) {
+          setBlock(x, y, z, B.COBBLE);
+        } else if (dy === H2 - 1) {
+          // roof
+          if (isEdge) setBlock(x, y+dy, z, B.PLANKS);
+        } else if (isEdge) {
+          // walls - leave 1-wide door opening
+          if (dy < 3 && dz === -2 && Math.abs(dx) === 0) {
+            // door slot - place door (meta bit 0 = closed)
+            setBlock(x, y+dy, z, B.DOOR);
+            meta[idx(x, y+dy, z)] = 0; // closed
+          } else if (dy === 1 && Math.abs(dx) === 1 && Math.abs(dz) === 2) {
+            // window (glass)
+            setBlock(x, y+dy, z, B.GLASS);
+          } else {
+            setBlock(x, y+dy, z, B.WOOD);
+          }
+        } else {
+          setBlock(x, y+dy, z, B.AIR); // interior empty
+        }
+      }
+    }
+  }
+}
+
+function plantTree(x, y, z) {
+  const trunkH = 4 + ((vnoise2(x, z, 99) * 3) | 0);
+  for (let i = 0; i < trunkH; i++) {
+    if (inBounds(x, y+i, z)) setBlock(x, y+i, z, B.WOOD);
+  }
+  // Leaves crown
+  const top = y + trunkH;
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dz = -2; dz <= 2; dz++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const xx = x+dx, yy = top+dy, zz = z+dz;
+        if (!inBounds(xx, yy, zz)) continue;
+        if (Math.abs(dx) === 2 && Math.abs(dz) === 2) continue; // corners
+        if (getBlock(xx, yy, zz) === B.AIR) setBlock(xx, yy, zz, B.LEAVES);
+      }
+    }
+  }
+  // top leaf
+  if (inBounds(x, top+1, z) && getBlock(x, top+1, z) === B.AIR) setBlock(x, top+1, z, B.LEAVES);
+}
+
+function findSpawn() {
+  // Find a high grass spot
+  let bestX = (W/2)|0, bestZ = (D/2)|0, bestY = H;
+  for (let z = 4; z < D-4; z++) {
+    for (let x = 4; x < W-4; x++) {
+      for (let y = H-1; y > 0; y--) {
+        if (getBlock(x, y, z) === B.GRASS) {
+          if (y < bestY) { bestY = y; bestX = x; bestZ = z; }
+          break;
+        }
+      }
+    }
+  }
+  return { x: bestX + 0.5, y: bestY + 1.2, z: bestZ + 0.5 };
+}
+
+// ======================================================================
+// MESH BUILDING
+// ======================================================================
+const positions = [];
+const normals = [];
+const uvs = [];
+const indices = [];
+const colors = []; // not used, kept for future
+let meshRebuildNeeded = true;
+
+function clearMesh() {
+  positions.length = 0;
+  normals.length = 0;
+  uvs.length = 0;
+  indices.length = 0;
+}
+
+// Face directions: 0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z
+// Each face: 4 vertices (CCW when viewed from outside)
+const FACE_VERTS = [
+  // +X (right)
+  [[1,1,0],[1,0,0],[1,1,1],[1,0,1]],
+  // -X (left)
+  [[0,1,1],[0,0,1],[0,1,0],[0,0,0]],
+  // +Y (top)
+  [[0,1,1],[1,1,1],[0,1,0],[1,1,0]],
+  // -Y (bottom)
+  [[0,0,0],[1,0,0],[0,0,1],[1,0,1]],
+  // +Z (front)
+  [[1,1,1],[0,1,1],[1,0,1],[0,0,1]],
+  // -Z (back)
+  [[0,1,0],[1,1,0],[0,0,0],[1,0,0]],
+];
+const FACE_NORMALS = [
+  [1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1]
+];
+const FACE_UVS = [
+  [0,0],[1,0],[0,1],[1,1]
+];
+
+function addFace(target, bx, by, bz, face, blockType) {
+  const verts = FACE_VERTS[face];
+  const n = FACE_NORMALS[face];
+  // Get tex for this face
+  let texIdx;
+  if (face === 2) texIdx = FACE_TEX[blockType]?.[0] ?? 3;
+  else if (face === 3) texIdx = FACE_TEX[blockType]?.[2] ?? 2;
+  else texIdx = FACE_TEX[blockType]?.[1] ?? 3;
+
+  const u0 = (texIdx % CFG.ATLAS) / CFG.ATLAS;
+  const v0 = Math.floor(texIdx / CFG.ATLAS) / CFG.ATLAS_H;
+  const du = 1 / CFG.ATLAS;
+  const dv = 1 / CFG.ATLAS_H;
+  let uvCoords;
+  if (face === 2) {
+    uvCoords = [[u0, v0+dv],[u0+du, v0+dv],[u0, v0],[u0+du, v0]];
+  } else if (face === 3) {
+    uvCoords = [[u0, v0],[u0+du, v0],[u0, v0+dv],[u0+du, v0+dv]];
+  } else {
+    uvCoords = [[u0, v0+dv],[u0+du, v0+dv],[u0, v0],[u0+du, v0]];
+  }
+
+  const baseIdx = target.positions.length / 3;
+  for (let i = 0; i < 4; i++) {
+    target.positions.push(bx + verts[i][0], by + verts[i][1], bz + verts[i][2]);
+    target.normals.push(n[0], n[1], n[2]);
+    target.uvs.push(uvCoords[i][0], uvCoords[i][1]);
+  }
+  target.indices.push(baseIdx, baseIdx+1, baseIdx+2, baseIdx+1, baseIdx+3, baseIdx+2);
+}
+
+function buildMesh() {
+  // Separate meshes: opaque and transparent
+  const opaque = { positions: [], normals: [], uvs: [], indices: [] };
+  const transp = { positions: [], normals: [], uvs: [], indices: [] };
+  let faceCount = 0;
+  for (let z = 0; z < D; z++) {
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        let b = world[idx(x, y, z)];
+        // Skip open doors (treat as air visually)
+        if (b === B.DOOR && (meta[idx(x, y, z)] & 2) !== 0) continue;
+        if (b === B.AIR) continue;
+        const isT = TRANSPARENT.has(b) && b !== B.LEAVES; // water, glass, ice
+        const target = isT ? transp : opaque;
+        for (let f = 0; f < 6; f++) {
+          const nx = x + FACE_NORMALS[f][0];
+          const ny = y + FACE_NORMALS[f][1];
+          const nz = z + FACE_NORMALS[f][2];
+          const nb = getBlock(nx, ny, nz);
+          const isOpenDoor = nb === B.DOOR && (meta[idx(nx, ny, nz)] & 2) !== 0;
+          // For opaque: face visible if neighbor is air or transparent
+          // For transparent: face visible if neighbor is air
+          if (isT) {
+            if (nb === B.AIR || isOpenDoor) {
+              addFace(target, x, y, z, f, b);
+              faceCount++;
+            }
+          } else {
+            if (TRANSPARENT.has(nb) || isOpenDoor) {
+              addFace(target, x, y, z, f, b);
+              faceCount++;
+            }
+          }
+        }
+      }
+    }
+  }
+  // Copy to main buffers (avoid spread on huge arrays - causes stack overflow)
+  positions.length = 0;
+  for (let i = 0; i < opaque.positions.length; i++) positions.push(opaque.positions[i]);
+  normals.length = 0;
+  for (let i = 0; i < opaque.normals.length; i++) normals.push(opaque.normals[i]);
+  uvs.length = 0;
+  for (let i = 0; i < opaque.uvs.length; i++) uvs.push(opaque.uvs[i]);
+  indices.length = 0;
+  for (let i = 0; i < opaque.indices.length; i++) indices.push(opaque.indices[i]);
+  // Transparent in separate buffers
+  meshTransparent = transp;
+  uploadMesh();
+  uploadTransparentMesh();
+  meshRebuildNeeded = false;
+  return { faces: faceCount, verts: positions.length / 3 };
+}
+
+let meshTransparent = { positions: [], normals: [], uvs: [], indices: [] };
+let transpBuf = {};
+
+// ======================================================================
+// WEBGL SETUP
+// ======================================================================
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl', { antialias: false, alpha: false });
+
+if (!gl) {
+  alert('เบราว์เซอร์ไม่รองรับ WebGL — ลอง Chrome / Firefox / Edge เวอร์ชันใหม่');
+  throw new Error('No WebGL');
+}
+
+function compileShader(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    console.error('Shader error:', gl.getShaderInfoLog(s), src);
+    return null;
+  }
+  return s;
+}
+
+const VS_SRC = `
+attribute vec3 aPos;
+attribute vec3 aNormal;
+attribute vec2 aUV;
+uniform mat4 uMVP;
+uniform mat4 uModel;
+varying vec3 vNormal;
+varying vec2 vUV;
+varying float vDist;
+void main() {
+  vec4 wp = uModel * vec4(aPos, 1.0);
+  vDist = length(wp.xyz);
+  gl_Position = uMVP * vec4(aPos, 1.0);
+  vNormal = aNormal;
+  vUV = aUV;
+}`;
+
+const FS_SRC = `
+precision mediump float;
+uniform sampler2D uAtlas;
+varying vec3 vNormal;
+varying vec2 vUV;
+varying float vDist;
+uniform vec3 uSunDir;
+uniform vec3 uFogColor;
+uniform float uFogStart;
+uniform float uFogEnd;
+uniform float uTime;
+uniform float uAmbient;
+void main() {
+  vec4 c = texture2D(uAtlas, vUV);
+  if (c.a < 0.05) discard;
+  vec3 n = normalize(vNormal);
+  // Use absolute value of sun Y so we get light from above (sun or moon)
+  float diff = max(dot(n, vec3(uSunDir.x, abs(uSunDir.y), uSunDir.z)), 0.0);
+  float ambient = uAmbient;
+  float skyAmb = (n.y * 0.5 + 0.5) * 0.15;
+  float light = ambient + skyAmb + 0.55 * diff;
+  vec3 col = c.rgb * light;
+  float fogF = clamp((vDist - uFogStart) / (uFogEnd - uFogStart), 0.0, 1.0);
+  col = mix(col, uFogColor, fogF);
+  gl_FragColor = vec4(col, c.a);
+}`;
+
+const vs = compileShader(gl.VERTEX_SHADER, VS_SRC);
+const fs = compileShader(gl.FRAGMENT_SHADER, FS_SRC);
+const prog = gl.createProgram();
+gl.attachShader(prog, vs);
+gl.attachShader(prog, fs);
+gl.linkProgram(prog);
+if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+  console.error('Program link error:', gl.getProgramInfoLog(prog));
+  alert('WebGL program error');
+}
+gl.useProgram(prog);
+
+const aPos = gl.getAttribLocation(prog, 'aPos');
+const aNormal = gl.getAttribLocation(prog, 'aNormal');
+const aUV = gl.getAttribLocation(prog, 'aUV');
+const uMVP = gl.getUniformLocation(prog, 'uMVP');
+const uModel = gl.getUniformLocation(prog, 'uModel');
+const uAtlas = gl.getUniformLocation(prog, 'uAtlas');
+const uSunDir = gl.getUniformLocation(prog, 'uSunDir');
+const uFogColor = gl.getUniformLocation(prog, 'uFogColor');
+const uFogStart = gl.getUniformLocation(prog, 'uFogStart');
+const uFogEnd = gl.getUniformLocation(prog, 'uFogEnd');
+const uAmbient = gl.getUniformLocation(prog, 'uAmbient');
+
+// Buffers
+let posBuf, normBuf, uvBuf, idxBuf;
+let bufCapacity = 0;
+
+function ensureBuffers() {
+  if (positions.length > bufCapacity) {
+    bufCapacity = Math.max(positions.length, 1024);
+    posBuf = gl.createBuffer();
+    normBuf = gl.createBuffer();
+    uvBuf = gl.createBuffer();
+    idxBuf = gl.createBuffer();
+  }
+}
+
+function uploadTransparentMesh() {
+  if (!transpBuf.pos) {
+    transpBuf.pos = gl.createBuffer();
+    transpBuf.norm = gl.createBuffer();
+    transpBuf.uv = gl.createBuffer();
+    transpBuf.idx = gl.createBuffer();
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, transpBuf.pos);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(meshTransparent.positions), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, transpBuf.norm);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(meshTransparent.normals), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, transpBuf.uv);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(meshTransparent.uvs), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, transpBuf.idx);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(meshTransparent.indices), gl.STATIC_DRAW);
+}
+
+function uploadMesh() {
+  ensureBuffers();
+  gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, normBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, uvBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+}
+
+// Texture
+let atlasTex;
+function uploadAtlas(canvas) {
+  if (atlasTex) gl.deleteTexture(atlasTex);
+  atlasTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, atlasTex);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+}
+
+gl.enable(gl.DEPTH_TEST);
+gl.enable(gl.CULL_FACE);
+gl.cullFace(gl.BACK);
+
+// ======================================================================
+// MATH (matrices, etc.)
+// ======================================================================
+function mat4Identity() {
+  return new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
+}
+function mat4Mult(a, b) {
+  const out = new Float32Array(16);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+    let s = 0;
+    for (let k = 0; k < 4; k++) s += a[k*4+j] * b[i*4+k];
+    out[i*4+j] = s;
+  }
+  return out;
+}
+function mat4Perspective(fovY, aspect, near, far) {
+  const f = 1 / Math.tan(fovY/2);
+  const nf = 1 / (near - far);
+  return new Float32Array([
+    f/aspect, 0, 0, 0,
+    0, f, 0, 0,
+    0, 0, (far+near)*nf, -1,
+    0, 0, 2*far*near*nf, 0
+  ]);
+}
+function mat4Translate(x, y, z) {
+  const m = mat4Identity();
+  m[12] = x; m[13] = y; m[14] = z;
+  return m;
+}
+function mat4RotateX(a) {
+  const c = Math.cos(a), s = Math.sin(a);
+  return new Float32Array([1,0,0,0, 0,c,s,0, 0,-s,c,0, 0,0,0,1]);
+}
+function mat4RotateY(a) {
+  const c = Math.cos(a), s = Math.sin(a);
+  return new Float32Array([c,0,-s,0, 0,1,0,0, s,0,c,0, 0,0,0,1]);
+}
+
+// ======================================================================
+// PLAYER & CAMERA
+// ======================================================================
+const player = {
+  x: 24, y: 30, z: 24,
+  vx: 0, vy: 0, vz: 0,
+  yaw: 0, pitch: 0,
+  onGround: false,
+  flyMode: false,
+  hp: 20
+};
+
+let selectedSlot = 0;
+const keys = {};
+let mouseLocked = false;
+let lastBreakTime = 0;
+
+// ======================================================================
+// INPUT
+// ======================================================================
+function lockPointer() { canvas.requestPointerLock(); }
+function unlockPointer() { document.exitPointerLock(); }
+
+document.addEventListener('pointerlockchange', () => {
+  mouseLocked = document.pointerLockElement === canvas;
+  if (mouseLocked) {
+    document.body.classList.add('playing');
+  } else {
+    document.body.classList.remove('playing');
+    if (player.yaw !== undefined) saveGame();
+  }
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!mouseLocked) return;
+  player.yaw += e.movementX * CFG.MOUSE_SENS;
+  player.pitch -= e.movementY * CFG.MOUSE_SENS;
+  player.pitch = Math.max(-Math.PI/2 + 0.01, Math.min(Math.PI/2 - 0.01, player.pitch));
+});
+
+document.addEventListener('keydown', (e) => {
+  keys[e.code] = true;
+  if (e.code === 'Space' && mouseLocked) {
+    e.preventDefault();
+    if (player.flyMode) {
+      player.vy = CFG.FLY_SPEED;
+    } else if (player.onGround) {
+      player.vy = CFG.JUMP_VEL;
+      player.onGround = false;
+    }
+  }
+  if (e.code === 'KeyF' && mouseLocked) {
+    player.flyMode = !player.flyMode;
+    player.vy = 0;
+    toast(player.flyMode ? '🪽 โหมดบิน เปิด' : '🚶 โหมดเดิน เปิด');
+  }
+  // Number keys 1-8 for hotbar
+  if (e.code.startsWith('Digit')) {
+    const n = parseInt(e.code.slice(5));
+    if (n >= 1 && n <= HOTBAR.length) {
+      selectedSlot = n - 1;
+      updateHotbarUI();
+    }
+  }
+  // Save
+  if (e.code === 'KeyP' && mouseLocked) saveGame();
+  if (e.code === 'KeyR' && mouseLocked) {
+    if (confirm('รีโหลดโลกใหม่? (เซฟปัจจุบันจะหายไป)')) {
+      startNewWorld();
+    }
+  }
+  if (e.code === 'Escape') {
+    if (invOpen) closeInventory();
+    else if (craftOpen) closeCrafting();
+    else if (mouseLocked) {
+      // pause
+      document.getElementById('pause').classList.add('show');
+      unlockPointer();
+    }
+  }
+});
+
+document.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+// Mouse click for break/place
+canvas.addEventListener('mousedown', (e) => {
+  if (!mouseLocked) return;
+  if (e.button === 0) breakBlock();
+  else if (e.button === 2) placeBlock();
+  else if (e.button === 1) {
+    // middle = pick block
+    const r = raycast();
+    if (r) { selectedSlot = HOTBAR.indexOf(r.block); if (selectedSlot<0) selectedSlot=0; updateHotbarUI(); }
+  }
+});
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('wheel', (e) => {
+  if (!mouseLocked) return;
+  if (e.deltaY > 0) selectedSlot = (selectedSlot + 1) % HOTBAR.length;
+  else selectedSlot = (selectedSlot - 1 + HOTBAR.length) % HOTBAR.length;
+  updateHotbarUI();
+  e.preventDefault();
+}, { passive: false });
+
+// ======================================================================
+// RAYCAST (for block break/place)
+// ======================================================================
+function raycast() {
+  const ex = player.x, ey = player.y + CFG.PLAYER_EYE, ez = player.z;
+  // Forward vector
+  const cy = Math.cos(player.yaw), sy = Math.sin(player.yaw);
+  const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+  const dx = -sy * cp, dy = sp, dz = -cy * cp;
+
+  let x = Math.floor(ex), y = Math.floor(ey), z = Math.floor(ez);
+  const stepX = dx > 0 ? 1 : -1;
+  const stepY = dy > 0 ? 1 : -1;
+  const stepZ = dz > 0 ? 1 : -1;
+  const tDeltaX = Math.abs(1/dx);
+  const tDeltaY = Math.abs(1/dy);
+  const tDeltaZ = Math.abs(1/dz);
+  const fracX = dx > 0 ? (x+1 - ex) : (ex - x);
+  const fracY = dy > 0 ? (y+1 - ey) : (ey - y);
+  const fracZ = dz > 0 ? (z+1 - ez) : (ez - z);
+  let tMaxX = isFinite(tDeltaX) ? fracX * tDeltaX : 1e9;
+  let tMaxY = isFinite(tDeltaY) ? fracY * tDeltaY : 1e9;
+  let tMaxZ = isFinite(tDeltaZ) ? fracZ * tDeltaZ : 1e9;
+
+  let lastX = x, lastY = y, lastZ = z;
+  let dist = 0;
+  while (dist < CFG.REACH) {
+    let b = getBlock(x, y, z);
+    // Skip open doors for raycast
+    if (b === B.DOOR && (meta[idx(x, y, z)] & 2) !== 0) b = B.AIR;
+    if (b !== B.AIR && b !== B.LEAVES) {
+      return { x, y, z, block: b, normal: [lastX, lastY, lastZ] };
+    }
+    if (b !== B.AIR && b === B.LEAVES) {
+      return { x, y, z, block: b, normal: [lastX, lastY, lastZ] };
+    }
+    lastX = x; lastY = y; lastZ = z;
+    if (tMaxX < tMaxY && tMaxX < tMaxZ) { dist = tMaxX; tMaxX += tDeltaX; x += stepX; }
+    else if (tMaxY < tMaxZ) { dist = tMaxY; tMaxY += tDeltaY; y += stepY; }
+    else { dist = tMaxZ; tMaxZ += tDeltaZ; z += stepZ; }
+  }
+  return null;
+}
+
+function breakBlock() {
+  const r = raycast();
+  if (!r) return;
+  const now = performance.now();
+  if (now - lastBreakTime < 200) return;
+  lastBreakTime = now;
+  setBlock(r.x, r.y, r.z, B.AIR);
+  meshRebuildNeeded = true;
+  toast('⛏ ทุบบล็อก');
+}
+
+function placeBlock() {
+  const r = raycast();
+  if (!r) return;
+  const nx = r.normal[0], ny = r.normal[1], nz = r.normal[2];
+  // Don't place inside player
+  const px = Math.floor(player.x), py = Math.floor(player.y), pz = Math.floor(player.z);
+  const px2 = Math.floor(player.x + 0.3), py2 = Math.floor(player.y + 1.5), pz2 = Math.floor(player.z + 0.3);
+  if ((nx === px && (ny === py || ny === py2) && nz === pz) ||
+      (nx === px2 && (ny === py || ny === py2) && nz === pz2)) {
+    toast('❌ วางตรงนี้ไม่ได้');
+    return;
+  }
+  setBlock(nx, ny, nz, HOTBAR[selectedSlot]);
+  meshRebuildNeeded = true;
+  toast('🧱 วาง ' + BLOCK_NAMES[HOTBAR[selectedSlot]]);
+}
+
+// ======================================================================
+// PHYSICS / MOVEMENT
+// ======================================================================
+function isSolid(x, y, z) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  const b = getBlock(xi, yi, zi);
+  if (b === B.AIR || b === B.WATER) return false;
+  if (b === B.DOOR) {
+    // door is solid only when closed (meta bit 1 = 0)
+    return (meta[idx(xi, yi, zi)] & 2) === 0;
+  }
+  return true;
+}
+
+function moveAxis(axis, delta) {
+  const newPos = { x: player.x, y: player.y, z: player.z };
+  newPos[axis] += delta;
+  // AABB check
+  const hw = CFG.PLAYER_W / 2;
+  const minX = newPos.x - hw, maxX = newPos.x + hw;
+  const minY = newPos.y, maxY = newPos.y + CFG.PLAYER_H;
+  const minZ = newPos.z - hw, maxZ = newPos.z + hw;
+  for (let by = Math.floor(minY); by <= Math.floor(maxY); by++) {
+    for (let bz = Math.floor(minZ); bz <= Math.floor(maxZ); bz++) {
+      for (let bx = Math.floor(minX); bx <= Math.floor(maxX); bx++) {
+        if (isSolid(bx, by, bz)) {
+          // Collision - reject
+          if (axis === 'x') {
+            if (delta > 0) player.x = bx - hw - 0.001;
+            else player.x = bx + 1 + hw + 0.001;
+            player.vx = 0;
+          } else if (axis === 'y') {
+            if (delta > 0) player.y = by - CFG.PLAYER_H - 0.001;
+            else { player.y = by + 1 + 0.001; player.onGround = true; }
+            player.vy = 0;
+          } else {
+            if (delta > 0) player.z = bz - hw - 0.001;
+            else player.z = bz + 1 + hw + 0.001;
+            player.vz = 0;
+          }
+          return;
+        }
+      }
+    }
+  }
+  player[axis] = newPos[axis];
+  if (axis === 'y' && delta > 0) player.onGround = false;
+}
+
+function updatePlayer(dt) {
+  if (!mouseLocked) return;
+  // Movement input
+  const forward = (keys['KeyW'] ? 1 : 0) - (keys['KeyS'] ? 1 : 0);
+  const strafe = (keys['KeyD'] ? 1 : 0) - (keys['KeyA'] ? 1 : 0);
+  const speed = (keys['ShiftLeft'] || keys['ShiftRight']) ? CFG.RUN_SPEED : CFG.WALK_SPEED;
+
+  const cy = Math.cos(player.yaw), sy = Math.sin(player.yaw);
+  // forward = -sin(yaw), strafe = cos(yaw) in xz plane (negate sy)
+  // Note: We want W to move in -Z (north)
+  let mvx = 0, mvz = 0;
+  if (forward) { mvx -= sy * forward; mvz -= cy * forward; }
+  if (strafe)  { mvx += cy * strafe;  mvz -= sy * strafe; }
+  const len = Math.sqrt(mvx*mvx + mvz*mvz);
+  if (len > 0) { mvx /= len; mvz /= len; }
+
+  if (player.flyMode) {
+    player.vx = mvx * speed;
+    player.vz = mvz * speed;
+    player.vy = 0;
+    if (keys['Space']) player.vy = CFG.FLY_SPEED;
+    if (keys['ShiftLeft'] || keys['ShiftRight']) player.vy = -CFG.FLY_SPEED;
+  } else {
+    // Apply friction
+    player.vx = mvx * speed;
+    player.vz = mvz * speed;
+    // Gravity
+    player.vy += CFG.GRAVITY * dt;
+    if (player.vy < -30) player.vy = -30;
+    // Check ground
+    player.onGround = false;
+  }
+
+  // Move
+  moveAxis('x', player.vx * dt);
+  moveAxis('z', player.vz * dt);
+  moveAxis('y', player.vy * dt);
+
+  // Out of world reset
+  if (player.y < -10) {
+    const sp = findSpawn();
+    player.x = sp.x; player.y = sp.y; player.z = sp.z;
+    player.vy = 0;
+    toast('🌍 กลับจุดเกิด');
+  }
+}
+
+// ======================================================================
+// RENDER LOOP
+// ======================================================================
+let lastT = 0;
+let fpsAvg = 0, fpsFrame = 0;
+function loop(t) {
+  const dt = Math.min((t - lastT) / 1000, 0.1);
+  lastT = t;
+
+  // FPS
+  if (dt > 0) {
+    fpsAvg = fpsAvg * 0.9 + (1/dt) * 0.1;
+    fpsFrame++;
+    if (fpsFrame % 10 === 0) {
+      document.getElementById('fps').textContent = fpsAvg.toFixed(0);
+    }
+  }
+
+  // Resize
+  if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+
+  if (meshRebuildNeeded) {
+    const info = buildMesh();
+    uploadMesh();
+    document.getElementById('dfaces').textContent = info.faces.toLocaleString();
+    document.getElementById('dverts').textContent = info.verts.toLocaleString();
+  }
+
+  updatePlayer(dt);
+  render();
+
+  document.getElementById('pos').textContent =
+    `${player.x.toFixed(1)}, ${player.y.toFixed(1)}, ${player.z.toFixed(1)}`;
+
+  // Update looked-at block name
+  if (mouseLocked) {
+    const r = raycast();
+    document.getElementById('bname').textContent = r ? BLOCK_NAMES[r.block] : '-';
+  }
+
+  requestAnimationFrame(loop);
+}
+
+function render() {
+  // Clear with sky color
+  // Clear with sky color based on time
+  const sky = getSkyColor();
+  gl.clearColor(sky[0], sky[1], sky[2], 1.0);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  // Camera matrices
+  const aspect = canvas.width / canvas.height;
+  const proj = mat4Perspective(Math.PI/3, aspect, 0.1, 500);
+  // View matrix = inverse of (translate(player) * rotate(-pitch) * rotate(-yaw))
+  const cy = Math.cos(player.yaw), sy = Math.sin(player.yaw);
+  const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+  // Forward
+  const fx = -sy*cp, fy = sp, fz = -cy*cp;
+  // Right
+  const rx = cy, ry = 0, rz = -sy;
+  // Up
+  const ux = sy*sp, uy = cp, uz = cy*sp;
+  // Look-at point
+  const ex = player.x, ey = player.y + CFG.PLAYER_EYE, ez = player.z;
+  const lx = ex + fx, ly = ey + fy, lz = ez + fz;
+  // Build view matrix (lookAt)
+  const fxv = lx-ex, fyv = ly-ey, fzv = lz-ez;
+  const flen = Math.sqrt(fxv*fxv+fyv*fyv+fzv*fzv);
+  const fnx = fxv/flen, fny = fyv/flen, fnz = fzv/flen;
+  // s = f x up
+  let sxv = fny*uz - fnz*uy, syv = fnz*ux - fnx*uz, szv = fnx*uy - fny*ux;
+  const slen = Math.sqrt(sxv*sxv+syv*syv+szv*szv);
+  sxv/=slen; syv/=slen; szv/=slen;
+  // u = s x f
+  const ux2 = syv*fnz - szv*fny, uy2 = szv*fnx - sxv*fnz, uz2 = sxv*fny - syv*fnx;
+  const view = new Float32Array([
+    sxv, ux2, -fnx, 0,
+    syv, uy2, -fny, 0,
+    szv, uz2, -fnz, 0,
+    -(sxv*ex + syv*ey + szv*ez), -(ux2*ex + uy2*ey + uz2*ez), (fnx*ex + fny*ey + fnz*ez), 1
+  ]);
+  // Rotate world relative to camera (model = inverse of player rotation)
+  // For simplicity, model = identity (world is static, camera moves)
+  const model = mat4Identity();
+  const mvp = mat4Mult(proj, mat4Mult(view, model));
+
+  gl.useProgram(prog);
+  gl.uniformMatrix4fv(uMVP, false, mvp);
+  gl.uniformMatrix4fv(uModel, false, model);
+  // Dynamic sun direction and fog color based on time
+  const sunDir = getSunDir();
+  gl.uniform3f(uSunDir, sunDir[0], sunDir[1], sunDir[2]);
+  gl.uniform3f(uFogColor, sky[0], sky[1], sky[2]);
+  gl.uniform1f(uFogStart, 30);
+  gl.uniform1f(uFogEnd, 90);
+  // Ambient based on time of day (brighter during day)
+  const ambient = isNight() ? 0.25 : 0.45;
+  gl.uniform1f(uAmbient, ambient);
+
+  if (atlasTex) {
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, atlasTex);
+    gl.uniform1i(uAtlas, 0);
+  }
+
+  if (positions.length > 0) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, normBuf);
+    gl.enableVertexAttribArray(aNormal);
+    gl.vertexAttribPointer(aNormal, 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuf);
+    gl.enableVertexAttribArray(aUV);
+    gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf);
+    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+  }
+
+  // Draw transparent (water) after opaque, with blending
+  if (meshTransparent && meshTransparent.indices.length > 0) {
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(false);  // don't write to depth buffer for transparent
+    gl.bindBuffer(gl.ARRAY_BUFFER, transpBuf.pos);
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, transpBuf.norm);
+    gl.enableVertexAttribArray(aNormal);
+    gl.vertexAttribPointer(aNormal, 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, transpBuf.uv);
+    gl.enableVertexAttribArray(aUV);
+    gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, transpBuf.idx);
+    gl.drawElements(gl.TRIANGLES, meshTransparent.indices.length, gl.UNSIGNED_SHORT, 0);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
+  }
+}
+
+// ======================================================================
+// UI
+// ======================================================================
+function buildHotbarUI() {
+  const hb = document.getElementById('hotbar');
+  hb.innerHTML = '';
+  HOTBAR.forEach((bid, i) => {
+    const slot = document.createElement('div');
+    slot.className = 'slot' + (i === selectedSlot ? ' active' : '');
+    slot.dataset.idx = i;
+    // Generate icon
+    const icon = document.createElement('canvas');
+    icon.width = icon.height = 32;
+    const ctx = icon.getContext('2d');
+    // simple block preview
+    ctx.fillStyle = '#222';
+    ctx.fillRect(0, 0, 32, 32);
+    drawBlockIcon(ctx, bid, 2, 2, 28);
+    slot.appendChild(icon);
+    const num = document.createElement('span');
+    num.className = 'num';
+    num.textContent = (i+1);
+    slot.appendChild(num);
+    const lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = BLOCK_NAMES[bid] || '?';
+    slot.appendChild(lbl);
+    slot.addEventListener('click', () => {
+      selectedSlot = i;
+      updateHotbarUI();
+    });
+    hb.appendChild(slot);
+  });
+}
+
+function drawBlockIcon(ctx, bid, x, y, s) {
+  // Draw isometric-ish preview using FACE_TEX
+  const top = FACE_TEX[bid]?.[0] ?? 3;
+  const side = FACE_TEX[bid]?.[1] ?? 3;
+  // simple 2D: top half = top texture, bottom half = side texture
+  // Draw top face
+  // Note: simple color preview (no atlas sampling for icons)
+  // Can't easily draw sub-region of atlas in icon - use color
+  const colors = {
+    [B.GRASS]: ['#7ac828','#5da31e'], [B.DIRT]: ['#8c6438','#6e4a25'],
+    [B.STONE]: ['#909098','#707078'], [B.SAND]: ['#e8d090','#d4b870'],
+    [B.WOOD]: ['#9c7038','#6a4820'], [B.LEAVES]: ['#3a8a25','#1a5a0a'],
+    [B.PLANKS]: ['#c8a065','#a88548'], [B.COBBLE]: ['#7a7a82','#5a5a62'],
+    [B.BEDROCK]: ['#404048','#1a1a22'], [B.SNOW]: ['#fafaff','#dde0ee'],
+    [B.BRICK]: ['#a04028','#6a2810'], [B.PUMPKIN]: ['#ec8424','#c8631a'],
+    [B.GLASS]: ['#cce4f0','#88a8c0'], [B.TORCH]: ['#ffd800','#ff7a00'],
+    [B.DOOR]: ['#9c6a30','#6e4818'], [B.CACTUS]: ['#3a8a25','#1a5a0a'],
+    [B.SANDSTONE]: ['#d4b870','#a08850'], [B.ICE]: ['#9cc0d8','#6a90b0'],
+    [B.ORE_COAL]: ['#707078','#0a0a0a'], [B.ORE_IRON]: ['#909098','#c8a878'],
+    [B.ORE_GOLD]: ['#909098','#e8c040'], [B.ORE_DIAMOND]: ['#909098','#5cd0e8'],
+    [B.GLOWSTONE]: ['#f0c850','#a08020'], [B.CRAFTING_TABLE]: ['#9c6a30','#5a3818'],
+    [B.LEVER]: ['#c84020','#5a3818'], [B.PRESSURE_PLATE]: ['#e8c040','#a08020'],
+    [B.FLOWER]: ['#ec5cd0','#3a8a25'], [B.SAPLING]: ['#3a8a25','#5a3818'],
+  };
+  const c = colors[bid] || ['#888','#555'];
+  ctx.fillStyle = c[0];
+  ctx.fillRect(x, y, s, s/2);
+  ctx.fillStyle = c[1];
+  ctx.fillRect(x, y + s/2, s, s/2);
+  // Border
+  ctx.strokeStyle = 'rgba(0,0,0,.4)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x+.5, y+.5, s-1, s-1);
+}
+
+function updateHotbarUI() {
+  const slots = document.querySelectorAll('#hotbar .slot');
+  slots.forEach((s, i) => s.className = 'slot' + (i === selectedSlot ? ' active' : ''));
+  document.getElementById('sel-name').textContent = BLOCK_NAMES[HOTBAR[selectedSlot]];
+  document.getElementById('bname').textContent = BLOCK_NAMES[HOTBAR[selectedSlot]];
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1400);
+}
+
+// ======================================================================
+// GAME FLOW
+// ======================================================================
+function startNewWorld() {
+  currentSeed = (Math.random() * 0x7fffffff) | 0;
+  document.getElementById('seed-display').textContent = 'Seed: ' + currentSeed;
+  document.getElementById('dseed').textContent = currentSeed;
+  generateWorld(currentSeed);
+  const sp = findSpawn();
+  player.x = sp.x; player.y = sp.y; player.z = sp.z;
+  player.yaw = 0; player.pitch = -0.3;
+  player.vx = player.vy = player.vz = 0;
+  player.flyMode = false;
+  player.hp = CFG.MAX_HP;
+  hunger = MAX_HUNGER;
+  gameTime = 6000;
+  inventory = [];
+  mobs = [];
+  // reset stats
+  stats.stepsWalked = 0;
+  stats.blocksPlaced = 0;
+  stats.blocksBroken = {};
+  stats.nightsSurvived = 0;
+  stats.crafted = 0;
+  stats.maxDistance = 0;
+  stats.mobsKilled = 0;
+  stats.diamondsFound = 0;
+  stats.doorsPlaced = 0;
+  unlockedAch = new Set();
+  selectedSlot = 0;
+  const atlas = makeAtlas();
+  uploadAtlas(atlas);
+  buildHotbarUI();
+  updateHotbarUI();
+  updateHPUI();
+  updateHungerUI();
+  updateInventoryUI();
+  updateTimeUI();
+  initStats();
+  spawnMobs();
+  meshRebuildNeeded = true;
+  saveGame();
+}
+
+function loadSavedWorld() {
+  const data = loadGame();
+  if (!data) { toast('❌ ไม่มีเซฟ'); return false; }
+  currentSeed = data.seed;
+  document.getElementById('seed-display').textContent = 'Seed: ' + currentSeed;
+  document.getElementById('dseed').textContent = currentSeed;
+  // Restore world array
+  if (data.world && data.world.length === world.length) {
+    for (let i = 0; i < world.length; i++) world[i] = data.world[i];
+  } else {
+    generateWorld(currentSeed);
+  }
+  // Restore meta
+  if (data.meta && data.meta.length === meta.length) {
+    for (let i = 0; i < meta.length; i++) meta[i] = data.meta[i];
+  } else {
+    meta.fill(0);
+  }
+  player.x = data.px; player.y = data.py; player.z = data.pz;
+  player.yaw = data.yaw; player.pitch = data.pitch;
+  player.flyMode = data.fly || false;
+  player.hp = data.hp || CFG.MAX_HP;
+  selectedSlot = data.sel || 0;
+  // Restore new state
+  inventory = data.inv || [];
+  hunger = data.hung || 20;
+  gameTime = data.time || 6000;
+  unlockedAch = new Set(data.ach || []);
+  if (data.stat) {
+    stats.stepsWalked = data.stat.steps || 0;
+    stats.blocksPlaced = data.stat.placed || 0;
+    stats.blocksBroken = data.stat.broken || {};
+    stats.nightsSurvived = data.stat.nights || 0;
+    stats.crafted = data.stat.crafted || 0;
+    stats.maxDistance = data.stat.maxDist || 0;
+    stats.mobsKilled = data.stat.mobs || 0;
+    stats.diamondsFound = data.stat.dia || 0;
+    stats.doorsPlaced = data.stat.doors || 0;
+  }
+  const atlas = makeAtlas();
+  uploadAtlas(atlas);
+  buildHotbarUI();
+  updateHotbarUI();
+  updateHPUI();
+  updateHungerUI();
+  updateInventoryUI();
+  updateTimeUI();
+  meshRebuildNeeded = true;
+  spawnMobs();
+  return true;
+}
+
+// ======================================================================
+// INIT
+// ======================================================================
+document.getElementById('btn-play').addEventListener('click', () => {
+  startNewWorld();
+  lockPointer();
+});
+document.getElementById('btn-load').addEventListener('click', () => {
+  if (loadSavedWorld()) {
+    lockPointer();
+  } else {
+    toast('❌ ไม่มีเซฟ — กด "เริ่มเล่นโลกใหม่" ก่อน');
+  }
+});
+document.getElementById('btn-resume').addEventListener('click', () => {
+  document.getElementById('pause').classList.remove('show');
+  lockPointer();
+});
+
+// Initial world generation so the first frame isn't black
+startNewWorld();
+
+// Show load button only if save exists
+if (!hasSave()) {
+  document.getElementById('btn-load').style.opacity = '0.4';
+  document.getElementById('btn-load').style.pointerEvents = 'none';
+}
+
+// Start the render loop
+requestAnimationFrame(loop);
+
+// Save on unload
+window.addEventListener('beforeunload', () => {
+  if (player.yaw !== undefined) saveGame();
+});
+
+// ======================================================================
+// TIER 1: SOUND SYSTEM (Web Audio API procedural)
+// ======================================================================
+let audioCtx = null;
+let soundEnabled = true;
+function initAudio() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch(e) { soundEnabled = false; }
+}
+function playSound(type) {
+  if (!soundEnabled || !audioCtx) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  // Different waveform + envelope per sound
+  switch(type) {
+    case 'break': {
+      // noise-like square wave burst
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      osc.start(now); osc.stop(now + 0.1);
+      break;
+    }
+    case 'place': {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(180, now);
+      osc.frequency.exponentialRampToValueAtTime(360, now + 0.07);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      osc.start(now); osc.stop(now + 0.08);
+      break;
+    }
+    case 'step': {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(80 + Math.random() * 40, now);
+      gain.gain.setValueAtTime(0.04, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+      osc.start(now); osc.stop(now + 0.05);
+      break;
+    }
+    case 'hurt': {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(400, now);
+      osc.frequency.exponentialRampToValueAtTime(80, now + 0.25);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      osc.start(now); osc.stop(now + 0.3);
+      break;
+    }
+    case 'jump': {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(180, now);
+      osc.frequency.exponentialRampToValueAtTime(360, now + 0.1);
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      osc.start(now); osc.stop(now + 0.12);
+      break;
+    }
+    case 'splash': {
+      // water entry - white noise burst
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.exponentialRampToValueAtTime(100, now + 0.2);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      osc.start(now); osc.stop(now + 0.22);
+      break;
+    }
+    case 'click': {
+      osc.type = 'square';
+      osc.frequency.value = 800;
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+      osc.start(now); osc.stop(now + 0.04);
+      break;
+    }
+    case 'achievement': {
+      // happy 3-note arpeggio
+      const notes = [523, 659, 784]; // C5, E5, G5
+      notes.forEach((freq, i) => {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.connect(g); g.connect(audioCtx.destination);
+        o.type = 'sine';
+        o.frequency.value = freq;
+        const t0 = now + i * 0.08;
+        g.gain.setValueAtTime(0, t0);
+        g.gain.linearRampToValueAtTime(0.15, t0 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.25);
+        o.start(t0); o.stop(t0 + 0.25);
+      });
+      return; // no osc.start needed
+    }
+    case 'explode': {
+      // low rumble with quick drop
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(120, now);
+      osc.frequency.exponentialRampToValueAtTime(20, now + 0.5);
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      osc.start(now); osc.stop(now + 0.5);
+      break;
+    }
+    case 'door': {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(200, now);
+      osc.frequency.linearRampToValueAtTime(400, now + 0.1);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      osc.start(now); osc.stop(now + 0.15);
+      break;
+    }
+    case 'lever': {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.setValueAtTime(330, now + 0.05);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      osc.start(now); osc.stop(now + 0.1);
+      break;
+    }
+    default: osc.start(now); osc.stop(now + 0.05);
+  }
+}
+
+// Step timer for footstep sounds
+let stepTimer = 0;
+
+// ======================================================================
+// TIER 1: TIME + DAY/NIGHT
+// ======================================================================
+// gameTime declared earlier (line ~273) to avoid TDZ
+// Convention: gameTime 0-24000 = 1 day
+// 0 = dawn (6am), 6000 = noon, 12000 = dusk (6pm), 18000 = midnight
+function timeOfDay() { return (gameTime / 24000); } // 0..1
+function isNight() {
+  const t = timeOfDay();
+  // night from ~7pm (0.54) to ~5am (0.79)
+  return t > 0.54 || t < 0.04;
+}
+function getTimeLabel() {
+  const t = timeOfDay();
+  // t=0=dawn, t=0.25=noon, t=0.5=dusk, t=0.75=midnight
+  if (t < 0.05) return 'เช้าตรู่';
+  if (t < 0.18) return 'เช้า';
+  if (t < 0.22) return 'สาย';
+  if (t < 0.35) return 'เที่ยง';
+  if (t < 0.48) return 'บ่าย';
+  if (t < 0.55) return 'เย็น';
+  if (t < 0.65) return 'ค่ำ';
+  if (t < 0.80) return 'กลางคืน';
+  return 'เที่ยงคืน';
+}
+function getTimeIcon() {
+  const t = timeOfDay();
+  if (t < 0.05) return '🌅';  // dawn
+  if (t < 0.45) return '☀️';   // day
+  if (t < 0.55) return '🌇';  // dusk
+  if (t < 0.75) return '🌆';  // evening
+  return '🌙';                  // night
+}
+function getSkyColor() {
+  // returns [r,g,b] for sky/fog based on time
+  // t=0 dawn, t=0.25 noon, t=0.5 dusk, t=0.75 night
+  const t = timeOfDay();
+  if (t < 0.20) { // night (early)
+    return [0.05, 0.07, 0.18];
+  } else if (t < 0.23) { // dawn
+    const k = (t - 0.20) / 0.03;
+    return [0.05 + k*0.6, 0.07 + k*0.4, 0.18 + k*0.55];
+  } else if (t < 0.45) { // day
+    return [0.55, 0.78, 0.95];
+  } else if (t < 0.55) { // dusk
+    const k = (t - 0.45) / 0.10;
+    return [0.55 - k*0.4, 0.78 - k*0.55, 0.95 - k*0.7];
+  } else { // night
+    const k = Math.min(1, (t - 0.55) / 0.20);
+    return [0.15 - k*0.1, 0.23 - k*0.16, 0.25 - k*0.07];
+  }
+}
+function getSunDir() {
+  // sun rises in east, peaks at noon, sets in west
+  const t = timeOfDay();
+  // Map t to angle: 0 = dawn, 0.5 = dusk
+  const angle = (t - 0.25) * Math.PI * 2; // -pi/2 at midnight, pi/2 at noon
+  return [Math.cos(angle) * 0.5, Math.sin(angle), Math.sin(angle) * 0.4];
+}
+function updateTimeUI() {
+  const t = timeOfDay();
+  const tint = document.getElementById('day-tint');
+  if (t < 0.20) tint.className = 'night';
+  else if (t < 0.24) tint.className = 'dawn';
+  else if (t < 0.45) tint.className = 'day';
+  else if (t < 0.55) tint.className = 'dusk';
+  else tint.className = 'night';
+  document.getElementById('time-icon').textContent = getTimeIcon();
+  document.getElementById('time-text').textContent = getTimeLabel();
+  // Day count
+  const days = Math.floor(gameTime / 24000);
+  if (days > 0) document.getElementById('time-text').textContent += ` (วันที่ ${days + 1})`;
+}
+
+// ======================================================================
+// TIER 1: HUNGER
+// ======================================================================
+// hunger, MAX_HUNGER declared earlier (line ~271) to avoid TDZ
+
+function updateHungerUI() {
+  const el = document.getElementById('hud-hunger');
+  let html = '';
+  for (let i = 0; i < MAX_HUNGER; i += 2) {
+    const filled = i < hunger;
+    const half = i === hunger - 1;
+    if (filled) html += '<span class="hunger-icon">🍗</span>';
+    else if (half) html += '<span class="hunger-icon" style="opacity:.5">🍗</span>';
+    else html += '<span class="hunger-icon" style="opacity:.15">🍗</span>';
+  }
+  el.innerHTML = html;
+}
+
+// ======================================================================
+// TIER 1: HP + HURT
+// ======================================================================
+function updateHPUI() {
+  const el = document.getElementById('hud-hp');
+  let html = '';
+  for (let i = 0; i < CFG.MAX_HP; i += 2) {
+    const filled = i < player.hp;
+    const half = i === player.hp - 1;
+    if (filled) html += '<span class="heart">❤️</span>';
+    else if (half) html += '<span class="heart" style="opacity:.5">❤️</span>';
+    else html += '<span class="heart" style="opacity:.15">❤️</span>';
+  }
+  el.innerHTML = html;
+}
+
+function damagePlayer(amount, source) {
+  if (player.flyMode) return; // can't die in creative
+  player.hp = Math.max(0, player.hp - amount);
+  playSound('hurt');
+  flashHurt();
+  updateHPUI();
+  if (player.hp <= 0) {
+    respawnPlayer();
+  }
+}
+function flashHurt() {
+  const f = document.getElementById('hurt-flash');
+  f.classList.add('show');
+  setTimeout(() => f.classList.remove('show'), 200);
+}
+function healPlayer(amount) {
+  player.hp = Math.min(CFG.MAX_HP, player.hp + amount);
+  updateHPUI();
+}
+function respawnPlayer() {
+  toast('💀 คุณตาย! กลับจุดเกิด');
+  player.hp = CFG.MAX_HP;
+  hunger = 20;
+  const sp = findSpawn();
+  player.x = sp.x; player.y = sp.y; player.z = sp.z;
+  player.vx = player.vy = player.vz = 0;
+  updateHPUI();
+  updateHungerUI();
+}
+
+let lastY = 0, fallStart = 0;
+function trackFall() {
+  if (player.vy < -2 && !player.onGround && !player.flyMode) {
+    if (fallStart === 0) fallStart = player.y;
+  } else if (player.onGround) {
+    if (fallStart > 0) {
+      const dist = fallStart - player.y;
+      if (dist > CFG.FALL_DAMAGE_THRESHOLD) {
+        const dmg = Math.floor(dist - CFG.FALL_DAMAGE_THRESHOLD);
+        if (dmg > 0) damagePlayer(dmg, 'fall');
+      }
+      fallStart = 0;
+    }
+  }
+}
+
+// ======================================================================
+// TIER 1: MOB SYSTEM
+// ======================================================================
+// mobs, MOB_TYPES declared earlier (lines ~274, 285) to avoid TDZ
+
+function spawnMob(type, x, y, z) {
+  if (mobs.length >= CFG.MAX_MOBS) return;
+  const def = MOB_TYPES[type];
+  if (!def) return;
+  mobs.push({
+    type, x, y, z,
+    vx: 0, vy: 0, vz: 0,
+    hp: def.hp,
+    w: def.w, h: def.h,
+    lastDamage: 0,
+    wanderDir: Math.random() * Math.PI * 2,
+    wanderTime: 2 + Math.random() * 3,
+    target: null,
+    fuse: 0,
+    dead: false,
+  });
+}
+
+function spawnMobs() {
+  // Initial mob population (only hostiles at night, peacefuls anytime)
+  for (let i = 0; i < 18; i++) {
+    const x = 4 + Math.random() * (W - 8);
+    const z = 4 + Math.random() * (D - 8);
+    const y = findSurface(x, z);
+    if (y < 2) continue;
+    const r = Math.random();
+    const type = r < 0.4 ? 'pig' : r < 0.7 ? 'cow' : r < 0.85 ? 'zombie' : 'creeper';
+    spawnMob(type, x, y + 0.1, z);
+  }
+}
+
+function findSurface(x, z) {
+  for (let y = H-1; y > 0; y--) {
+    if (getBlock(x, y, z) !== B.AIR && getBlock(x, y, z) !== B.WATER && getBlock(x, y, z) !== B.LEAVES) {
+      return y + 1;
+    }
+  }
+  return 0;
+}
+
+function updateMobs(dt) {
+  const t = timeOfDay();
+  const night = isNight();
+  for (let i = mobs.length - 1; i >= 0; i--) {
+    const m = mobs[i];
+    if (m.dead) {
+      mobs.splice(i, 1);
+      continue;
+    }
+    const def = MOB_TYPES[m.type];
+    const dx = player.x - m.x, dy = (player.y + 1) - m.y, dz = player.z - m.z;
+    const dist2 = dx*dx + dy*dy + dz*dz;
+    // Despawn if too far
+    if (dist2 > CFG.MOB_DESPAWN_RADIUS * CFG.MOB_DESPAWN_RADIUS) {
+      m.dead = true;
+      continue;
+    }
+    // Aggro: hostiles within range, only at night for zombies
+    if (def.hostile && (m.type === 'zombie' ? night : true) && dist2 < CFG.MOB_AGGRO_RADIUS * CFG.MOB_AGGRO_RADIUS) {
+      m.target = player;
+    } else if (def.hostile && dist2 > CFG.MOB_AGGRO_RADIUS * CFG.MOB_AGGRO_RADIUS * 1.5) {
+      m.target = null;
+    } else if (!def.hostile) {
+      // peacefuls run if player is very close
+      m.target = dist2 < 4 ? player : null;
+    }
+    // Movement
+    let mx = 0, mz = 0;
+    if (m.target) {
+      // chase (or flee for passive)
+      const len = Math.sqrt(dx*dx + dz*dz) || 1;
+      const speed = def.hostile ? 2.4 : 3.5;
+      mx = (dx/len) * speed;
+      mz = (dz/len) * speed;
+      // Jumping if blocked
+      const ahead = getBlock(Math.floor(m.x + (dx/len) * 0.6), Math.floor(m.y), Math.floor(m.z + (dz/len) * 0.6));
+      if (ahead !== B.AIR && ahead !== B.WATER && ahead !== B.LEAVES) m.vy = CFG.JUMP_VEL * 0.8;
+    } else {
+      // wander
+      m.wanderTime -= dt;
+      if (m.wanderTime <= 0) {
+        m.wanderDir = Math.random() * Math.PI * 2;
+        m.wanderTime = 2 + Math.random() * 4;
+      }
+      mx = Math.cos(m.wanderDir) * 1.2;
+      mz = Math.sin(m.wanderDir) * 1.2;
+    }
+    m.vx = mx;
+    m.vz = mz;
+    // Gravity
+    m.vy += CFG.GRAVITY * dt;
+    if (m.vy < -30) m.vy = -30;
+    // Move with AABB collision
+    moveMobAxis(m, 'x', m.vx * dt);
+    moveMobAxis(m, 'z', m.vz * dt);
+    moveMobAxis(m, 'y', m.vy * dt);
+    if (m.y < -10) m.dead = true;
+    // Creeper: explode near player
+    if (m.type === 'creeper' && dist2 < 4) {
+      m.fuse += dt;
+      if (m.fuse > 1.8) {
+        explodeAt(m.x, m.y, m.z);
+        damagePlayer(8, 'creeper');
+        playSound('explode');
+        m.dead = true;
+      }
+    } else {
+      m.fuse = Math.max(0, m.fuse - dt);
+    }
+    // Damage player if touching
+    if (dist2 < 1.3 && def.hostile) {
+      if (performance.now() / 1000 - m.lastDamage > CFG.MOB_DAMAGE_COOLDOWN) {
+        m.lastDamage = performance.now() / 1000;
+        damagePlayer(CFG.MOB_HOSTILE_DAMAGE, m.type);
+      }
+    }
+  }
+  // Spawn new mobs at night
+  if (night && mobs.length < CFG.MAX_MOBS && Math.random() < dt * 0.5) {
+    const ang = Math.random() * Math.PI * 2;
+    const r = 15 + Math.random() * 10;
+    const x = player.x + Math.cos(ang) * r;
+    const z = player.z + Math.sin(ang) * r;
+    if (x < 2 || x >= W-2 || z < 2 || z >= D-2) return;
+    const y = findSurface(x, z);
+    if (y > 2) {
+      const t = Math.random() < 0.5 ? 'zombie' : 'creeper';
+      spawnMob(t, x, y + 0.1, z);
+    }
+  }
+}
+
+function moveMobAxis(m, axis, delta) {
+  const newPos = m[axis] + delta;
+  const hw = m.w / 2;
+  // Compute AABB in the relevant axis
+  let minA, maxA, minB, maxB, minC, maxC;
+  if (axis === 'x') {
+    minA = Math.floor(newPos - hw); maxA = Math.floor(newPos + hw);
+    minB = Math.floor(m.y); maxB = Math.floor(m.y + m.h);
+    minC = Math.floor(m.z - hw); maxC = Math.floor(m.z + hw);
+  } else if (axis === 'y') {
+    minA = Math.floor(newPos); maxA = Math.floor(newPos + m.h);
+    minB = Math.floor(m.x - hw); maxB = Math.floor(m.x + hw);
+    minC = Math.floor(m.z - hw); maxC = Math.floor(m.z + hw);
+  } else {
+    minA = Math.floor(newPos - hw); maxA = Math.floor(newPos + hw);
+    minB = Math.floor(m.y); maxB = Math.floor(m.y + m.h);
+    minC = Math.floor(m.x - hw); maxC = Math.floor(m.x + hw);
+  }
+  for (let b = minB; b <= maxB; b++) {
+    for (let c = minC; c <= maxC; c++) {
+      for (let a = minA; a <= maxA; a++) {
+        let x, y, z;
+        if (axis === 'x') { x = a; y = b; z = c; }
+        else if (axis === 'y') { x = c; y = a; z = b; }
+        else { x = c; y = b; z = a; }
+        if (isSolid(x, y, z)) {
+          if (axis === 'x') {
+            m.x = delta > 0 ? x - hw - 0.001 : x + 1 + hw + 0.001;
+            m.vx = 0;
+          } else if (axis === 'y') {
+            m.y = delta > 0 ? y - m.h - 0.001 : y + 1 + 0.001;
+            m.vy = 0;
+            if (delta > 0) m.onGround = true;
+          } else {
+            m.z = delta > 0 ? z - hw - 0.001 : z + 1 + hw + 0.001;
+            m.vz = 0;
+          }
+          return;
+        }
+      }
+    }
+  }
+  m[axis] = newPos;
+  if (axis === 'y' && delta > 0) m.onGround = false;
+}
+
+function explodeAt(x, y, z) {
+  // damage blocks in radius 3
+  const r = 3;
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dz = -r; dz <= r; dz++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+        if (dist > r) continue;
+        const xx = Math.floor(x) + dx, yy = Math.floor(y) + dy, zz = Math.floor(z) + dz;
+        if (!inBounds(xx, yy, zz)) continue;
+        const b = getBlock(xx, yy, zz);
+        if (b !== B.AIR && b !== B.BEDROCK && b !== B.WATER && dist > 0.5) {
+          if (Math.random() < (1 - dist / r) * 0.8) {
+            setBlock(xx, yy, zz, B.AIR);
+            meshRebuildNeeded = true;
+          }
+        }
+      }
+    }
+  }
+}
+
+function damageMob(m, amount) {
+  m.hp -= amount;
+  // knockback
+  const dx = m.x - player.x, dz = m.z - player.z;
+  const len = Math.sqrt(dx*dx + dz*dz) || 1;
+  m.vx = (dx/len) * 4;
+  m.vz = (dz/len) * 4;
+  m.vy = 4;
+  if (m.hp <= 0) {
+    // drop item
+    const def = MOB_TYPES[m.type];
+    addToInventory(def.drops, 1 + (Math.random() < 0.5 ? 1 : 0));
+    playSound('hurt');
+    m.dead = true;
+    if (def.hostile) {
+      awardAchievement('monster_hunter');
+    }
+  }
+}
+
+// ======================================================================
+// TIER 2: INVENTORY
+// ======================================================================
+// item = {name, blockId|itemId, count}
+// itemId for non-blocks: 'stick', 'pork', 'leather', 'rotten_flesh', 'gunpowder', 'coal', 'iron_ingot', 'gold_ingot', 'diamond', 'wooden_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wooden_sword', 'stone_sword', 'torch_item', 'bread'
+// inventory declared earlier (line ~275) to avoid TDZ
+function addToInventory(name, count = 1) {
+  // find existing
+  for (const it of inventory) {
+    if (it.name === name) { it.count += count; updateInventoryUI(); return true; }
+  }
+  inventory.push({ name, count });
+  updateInventoryUI();
+  return true;
+}
+function hasItem(name, count = 1) {
+  for (const it of inventory) {
+    if (it.name === name) return it.count >= count;
+  }
+  return false;
+}
+function removeFromInventory(name, count = 1) {
+  for (let i = 0; i < inventory.length; i++) {
+    if (inventory[i].name === name) {
+      if (inventory[i].count >= count) {
+        inventory[i].count -= count;
+        if (inventory[i].count <= 0) inventory.splice(i, 1);
+        updateInventoryUI();
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Item visual info (for inventory icons + crafting)
+const ITEMS = {
+  stick: { name: 'ไม้ขีด', icon: null, color: '#8c5a2c' },
+  pork: { name: 'หมูดิบ', icon: null, color: '#ec8a8a' },
+  leather: { name: 'หนัง', icon: null, color: '#6a4818' },
+  rotten_flesh: { name: 'เนื้อเน่า', icon: null, color: '#5a6a30' },
+  gunpowder: { name: 'ดินปืน', icon: null, color: '#888' },
+  coal: { name: 'ถ่าน', icon: null, color: '#1a1a1a' },
+  iron_ingot: { name: 'เหล็ก', icon: null, color: '#c8c8c8' },
+  gold_ingot: { name: 'ทอง', icon: null, color: '#ffd800' },
+  diamond: { name: 'เพชร', icon: null, color: '#5cd0e8' },
+  wooden_pickaxe: { name: 'พลั่วไม้', icon: null, color: '#9c6a30' },
+  stone_pickaxe: { name: 'พลั่วหิน', icon: null, color: '#7a7a82' },
+  iron_pickaxe: { name: 'พลั่วเหล็ก', icon: null, color: '#c8c8c8' },
+  wooden_sword: { name: 'ดาบไม้', icon: null, color: '#9c6a30' },
+  stone_sword: { name: 'ดาบหิน', icon: null, color: '#7a7a82' },
+  torch_item: { name: 'คบไฟ (ไอเทม)', icon: null, color: '#ff7a00' },
+  bread: { name: 'ขนมปัง', icon: null, color: '#c89060' },
+  cooked_pork: { name: 'หมูสุก', icon: null, color: '#c8704a' },
+};
+
+function drawItemIcon(ctx, name, x, y, size) {
+  // simple colored shape based on type
+  ctx.fillStyle = '#2a2a3a';
+  ctx.fillRect(x, y, size, size);
+  // Check if modded item with shape
+  const items = getItems ? getItems() : null;
+  const info = items ? items.get(name) : null;
+  if (info && info.shape) {
+    drawItemShape(ctx, info.shape, info.color, x, y, size);
+    ctx.strokeStyle = 'rgba(0,0,0,.4)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
+    return;
+  }
+  if (name.startsWith('wooden_') || name === 'stick') {
+    ctx.fillStyle = '#8c5a2c';
+    ctx.fillRect(x + size*0.2, y + size*0.5, size*0.6, size*0.15);
+    ctx.fillStyle = '#5a3818';
+    ctx.fillRect(x + size*0.35, y + size*0.2, size*0.3, size*0.3);
+  } else if (name.startsWith('stone_')) {
+    ctx.fillStyle = '#7a7a82';
+    ctx.fillRect(x + size*0.15, y + size*0.3, size*0.5, size*0.35);
+    ctx.fillStyle = '#5a3818';
+    ctx.fillRect(x + size*0.45, y + size*0.6, size*0.1, size*0.3);
+  } else if (name.startsWith('iron_')) {
+    ctx.fillStyle = '#c8c8c8';
+    ctx.fillRect(x + size*0.15, y + size*0.3, size*0.5, size*0.35);
+    ctx.fillStyle = '#8c5a2c';
+    ctx.fillRect(x + size*0.45, y + size*0.6, size*0.1, size*0.3);
+  } else if (name === 'torch_item') {
+    ctx.fillStyle = '#ff7a00';
+    ctx.fillRect(x + size*0.4, y + size*0.2, size*0.2, size*0.3);
+    ctx.fillStyle = '#ffd800';
+    ctx.fillRect(x + size*0.4, y + size*0.1, size*0.2, size*0.15);
+    ctx.fillStyle = '#8c5a2c';
+    ctx.fillRect(x + size*0.45, y + size*0.5, size*0.1, size*0.4);
+  } else if (name === 'bread') {
+    ctx.fillStyle = '#c89060';
+    ctx.fillRect(x + size*0.15, y + size*0.4, size*0.7, size*0.35);
+    ctx.fillStyle = '#a06030';
+    for (let i = 0; i < 3; i++) ctx.fillRect(x + size*0.2 + i*size*0.2, y + size*0.5, size*0.05, size*0.1);
+  } else if (name === 'pork' || name === 'cooked_pork') {
+    ctx.fillStyle = name === 'cooked_pork' ? '#c8704a' : '#ec8a8a';
+    ctx.fillRect(x + size*0.15, y + size*0.3, size*0.7, size*0.45);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x + size*0.5, y + size*0.4, size*0.1, size*0.1);
+  } else if (name === 'coal') {
+    ctx.fillStyle = '#1a1a1a';
+    for (let i = 0; i < 4; i++) {
+      ctx.fillRect(x + size*0.15 + (i%2)*size*0.3, y + size*0.3 + Math.floor(i/2)*size*0.25, size*0.25, size*0.2);
+    }
+  } else if (name === 'iron_ingot') {
+    ctx.fillStyle = '#c8c8c8';
+    ctx.fillRect(x + size*0.1, y + size*0.4, size*0.8, size*0.35);
+    ctx.fillStyle = '#888';
+    ctx.fillRect(x + size*0.1, y + size*0.4, size*0.8, size*0.05);
+  } else if (name === 'gold_ingot') {
+    ctx.fillStyle = '#ffd800';
+    ctx.fillRect(x + size*0.1, y + size*0.4, size*0.8, size*0.35);
+    ctx.fillStyle = '#a08020';
+    ctx.fillRect(x + size*0.1, y + size*0.4, size*0.8, size*0.05);
+  } else if (name === 'diamond') {
+    ctx.fillStyle = '#5cd0e8';
+    ctx.beginPath();
+    ctx.moveTo(x + size*0.5, y + size*0.15);
+    ctx.lineTo(x + size*0.85, y + size*0.4);
+    ctx.lineTo(x + size*0.5, y + size*0.85);
+    ctx.lineTo(x + size*0.15, y + size*0.4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#a0f0ff';
+    ctx.fillRect(x + size*0.45, y + size*0.3, size*0.1, size*0.15);
+  } else if (name === 'gunpowder') {
+    ctx.fillStyle = '#555';
+    for (let i = 0; i < 6; i++) {
+      ctx.fillRect(x + size*0.2 + (i%3)*size*0.18, y + size*0.4 + Math.floor(i/3)*size*0.18, size*0.12, size*0.12);
+    }
+  } else if (name === 'rotten_flesh') {
+    ctx.fillStyle = '#5a6a30';
+    ctx.fillRect(x + size*0.2, y + size*0.35, size*0.6, size*0.4);
+    ctx.fillStyle = '#7a8a40';
+    for (let i = 0; i < 4; i++) ctx.fillRect(x + size*0.25 + (i%2)*size*0.3, y + size*0.4 + Math.floor(i/2)*size*0.2, size*0.08, size*0.08);
+  } else if (name === 'leather') {
+    ctx.fillStyle = '#6a4818';
+    ctx.fillRect(x + size*0.2, y + size*0.3, size*0.6, size*0.5);
+    ctx.fillStyle = '#3a2410';
+    for (let i = 0; i < 3; i++) ctx.fillRect(x + size*0.25, y + size*0.4 + i*size*0.15, size*0.5, size*0.03);
+  } else {
+    // generic or modded item
+    const items = getItems();
+    const info = items.get(name) || { color: '#888', shape: null };
+    if (info.shape) {
+      drawItemShape(ctx, info.shape, info.color, x, y, size);
+    } else {
+      ctx.fillStyle = info.color;
+      ctx.fillRect(x + size*0.25, y + size*0.25, size*0.5, size*0.5);
+    }
+  }
+  ctx.strokeStyle = 'rgba(0,0,0,.4)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
+}
+
+function drawItemShape(ctx, shape, color, x, y, size) {
+  ctx.fillStyle = color;
+  switch(shape) {
+    case 'gem':
+      ctx.beginPath();
+      ctx.moveTo(x + size*0.5, y + size*0.1);
+      ctx.lineTo(x + size*0.9, y + size*0.4);
+      ctx.lineTo(x + size*0.5, y + size*0.9);
+      ctx.lineTo(x + size*0.1, y + size*0.4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.5)';
+      ctx.fillRect(x + size*0.45, y + size*0.25, size*0.1, size*0.15);
+      break;
+    case 'ingot':
+      ctx.fillRect(x + size*0.1, y + size*0.45, size*0.8, size*0.35);
+      ctx.fillStyle = 'rgba(0,0,0,.3)';
+      ctx.fillRect(x + size*0.1, y + size*0.45, size*0.8, size*0.06);
+      break;
+    case 'stick':
+      ctx.fillRect(x + size*0.3, y + size*0.5, size*0.4, size*0.15);
+      ctx.fillStyle = 'rgba(0,0,0,.3)';
+      ctx.fillRect(x + size*0.3, y + size*0.5, size*0.4, size*0.05);
+      break;
+    case 'powder':
+      for (let i = 0; i < 4; i++) {
+        const px = x + size*0.2 + (i%2)*size*0.3;
+        const py = y + size*0.4 + Math.floor(i/2)*size*0.18;
+        ctx.fillRect(px, py, size*0.18, size*0.14);
+      }
+      break;
+    case 'food':
+      ctx.fillRect(x + size*0.15, y + size*0.35, size*0.7, size*0.45);
+      ctx.fillStyle = 'rgba(255,255,255,.4)';
+      ctx.fillRect(x + size*0.2, y + size*0.4, size*0.6, size*0.08);
+      break;
+    case 'leather':
+      ctx.fillRect(x + size*0.2, y + size*0.3, size*0.6, size*0.5);
+      ctx.fillStyle = 'rgba(0,0,0,.3)';
+      for (let i = 0; i < 3; i++) ctx.fillRect(x + size*0.25, y + size*0.45 + i*size*0.1, size*0.5, size*0.04);
+      break;
+    case 'tool_pickaxe':
+      ctx.fillStyle = color;
+      ctx.fillRect(x + size*0.25, y + size*0.3, size*0.35, size*0.3);
+      ctx.fillRect(x + size*0.45, y + size*0.55, size*0.08, size*0.4);
+      break;
+    case 'tool_sword':
+      ctx.fillStyle = color;
+      ctx.fillRect(x + size*0.4, y + size*0.15, size*0.2, size*0.55);
+      ctx.fillRect(x + size*0.3, y + size*0.7, size*0.4, size*0.1);
+      ctx.fillStyle = '#5a3818';
+      ctx.fillRect(x + size*0.45, y + size*0.8, size*0.1, size*0.15);
+      break;
+    case 'potion':
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x + size*0.5, y + size*0.6, size*0.2, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillRect(x + size*0.45, y + size*0.25, size*0.1, size*0.25);
+      ctx.fillStyle = 'rgba(255,255,255,.5)';
+      ctx.beginPath();
+      ctx.arc(x + size*0.5, y + size*0.55, size*0.1, 0, Math.PI*2);
+      ctx.fill();
+      break;
+    case 'coin':
+      ctx.beginPath();
+      ctx.arc(x + size*0.5, y + size*0.5, size*0.3, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.3)';
+      ctx.beginPath();
+      ctx.arc(x + size*0.45, y + size*0.4, size*0.15, 0, Math.PI*2);
+      ctx.fill();
+      break;
+    default:
+      ctx.fillRect(x + size*0.25, y + size*0.25, size*0.5, size*0.5);
+  }
+}
+
+function updateInventoryUI() {
+  const el = document.getElementById('inv-content');
+  if (!el) return;
+  if (inventory.length === 0) {
+    el.innerHTML = '<p style="color:var(--muted)">คลังว่าง — ทุบบล็อกเพื่อเก็บของ</p>';
+    return;
+  }
+  let html = '';
+  for (const it of inventory) {
+    const id = `inv-${it.name}`;
+    const isBlock = it.name.startsWith('block:');
+    let blockId = null;
+    if (isBlock) {
+      blockId = parseInt(it.name.slice(6));
+      const name = BLOCK_NAMES[blockId] || it.name;
+      html += `<div class="inv-row"><div class="lbl">${name}</div><div class="slots"><div class="inv-slot" data-name="${it.name}"><canvas id="${id}" width="32" height="32"></canvas><span class="count">${it.count}</span></div></div></div>`;
+    } else {
+      const items = getItems();
+      const info = items.get(it.name) || { name: it.name };
+      html += `<div class="inv-row"><div class="lbl">${info.name}</div><div class="slots"><div class="inv-slot" data-name="${it.name}"><canvas id="${id}" width="32" height="32"></canvas><span class="count">${it.count}</span></div></div></div>`;
+    }
+  }
+  el.innerHTML = html;
+  // draw icons
+  for (const it of inventory) {
+    const c = document.getElementById(`inv-${it.name}`);
+    if (c) {
+      const ctx = c.getContext('2d');
+      if (it.name.startsWith('block:')) {
+        const bid = parseInt(it.name.slice(6));
+        drawBlockIcon(ctx, bid, 2, 2, 28);
+      } else {
+        drawItemIcon(ctx, it.name, 2, 2, 28);
+      }
+    }
+  }
+}
+
+// ======================================================================
+// TIER 2: CRAFTING (data-driven via ModManager)
+// ======================================================================
+// Recipe format:
+//   { id, mod, name?, category?, result: {name, count}, ingredients: [{name, count}] }
+// Item format (mods can add custom items):
+//   { id, name, color, shape? }  -- shape is 'gem'|'stick'|'ingot'|'food'|'tool_pickaxe'|'tool_sword'|'leather'|'powder'
+// Block format (mods can add custom blocks - up to 32 total in 8x4 atlas):
+//   { id, name, color, drops?, hardness? }
+
+// Built-in vanilla mod (always loaded)
+const VANILLA_MOD = {
+  id: 'vanilla',
+  name: 'Vanilla',
+  version: '1.0.0',
+  author: 'MiniCraft',
+  builtin: true,
+  items: [
+    { id: 'stick', name: 'ไม้ขีด', color: '#8c5a2c', shape: 'stick' },
+    { id: 'pork', name: 'หมูดิบ', color: '#ec8a8a', shape: 'food' },
+    { id: 'leather', name: 'หนัง', color: '#6a4818', shape: 'leather' },
+    { id: 'rotten_flesh', name: 'เนื้อเน่า', color: '#5a6a30', shape: 'food' },
+    { id: 'gunpowder', name: 'ดินปืน', color: '#888', shape: 'powder' },
+    { id: 'coal', name: 'ถ่าน', color: '#1a1a1a', shape: 'powder' },
+    { id: 'iron_ingot', name: 'เหล็ก', color: '#c8c8c8', shape: 'ingot' },
+    { id: 'gold_ingot', name: 'ทอง', color: '#ffd800', shape: 'ingot' },
+    { id: 'diamond', name: 'เพชร', color: '#5cd0e8', shape: 'gem' },
+    { id: 'wooden_pickaxe', name: 'พลั่วไม้', color: '#9c6a30', shape: 'tool_pickaxe' },
+    { id: 'stone_pickaxe', name: 'พลั่วหิน', color: '#7a7a82', shape: 'tool_pickaxe' },
+    { id: 'iron_pickaxe', name: 'พลั่วเหล็ก', color: '#c8c8c8', shape: 'tool_pickaxe' },
+    { id: 'wooden_sword', name: 'ดาบไม้', color: '#9c6a30', shape: 'tool_sword' },
+    { id: 'stone_sword', name: 'ดาบหิน', color: '#7a7a82', shape: 'tool_sword' },
+    { id: 'torch_item', name: 'คบไฟ', color: '#ff7a00', shape: 'stick' },
+    { id: 'bread', name: 'ขนมปัง', color: '#c89060', shape: 'food' },
+    { id: 'cooked_pork', name: 'หมูสุก', color: '#c8704a', shape: 'food' },
+  ],
+  recipes: [
+    { id: 'planks', category: 'basic', name: 'ไม้แปรรูป', result: { name: 'block:' + B.PLANKS, count: 4 }, ingredients: [{ name: 'block:' + B.WOOD, count: 1 }] },
+    { id: 'stick', category: 'basic', name: 'ไม้ขีด', result: { name: 'stick', count: 4 }, ingredients: [{ name: 'block:' + B.PLANKS, count: 2 }] },
+    { id: 'torch', category: 'basic', name: 'คบไฟ', result: { name: 'torch_item', count: 4 }, ingredients: [{ name: 'stick', count: 1 }, { name: 'coal', count: 1 }] },
+    { id: 'crafting_table', category: 'basic', name: 'โต๊ะคราฟต์', result: { name: 'block:' + B.CRAFTING_TABLE, count: 1 }, ingredients: [{ name: 'block:' + B.PLANKS, count: 4 }] },
+    { id: 'glass', category: 'basic', name: 'กระจก', result: { name: 'block:' + B.GLASS, count: 1 }, ingredients: [{ name: 'block:' + B.SAND, count: 1 }, { name: 'coal', count: 1 }] },
+    { id: 'brick', category: 'basic', name: 'อิฐ', result: { name: 'block:' + B.BRICK, count: 4 }, ingredients: [{ name: 'block:' + B.COBBLE, count: 4 }] },
+    { id: 'wooden_pickaxe', category: 'tools', name: 'พลั่วไม้', result: { name: 'wooden_pickaxe', count: 1 }, ingredients: [{ name: 'block:' + B.PLANKS, count: 3 }, { name: 'stick', count: 2 }] },
+    { id: 'stone_pickaxe', category: 'tools', name: 'พลั่วหิน', result: { name: 'stone_pickaxe', count: 1 }, ingredients: [{ name: 'block:' + B.COBBLE, count: 3 }, { name: 'stick', count: 2 }] },
+    { id: 'iron_pickaxe', category: 'tools', name: 'พลั่วเหล็ก', result: { name: 'iron_pickaxe', count: 1 }, ingredients: [{ name: 'iron_ingot', count: 3 }, { name: 'stick', count: 2 }] },
+    { id: 'wooden_sword', category: 'tools', name: 'ดาบไม้', result: { name: 'wooden_sword', count: 1 }, ingredients: [{ name: 'block:' + B.PLANKS, count: 2 }, { name: 'stick', count: 1 }] },
+    { id: 'stone_sword', category: 'tools', name: 'ดาบหิน', result: { name: 'stone_sword', count: 1 }, ingredients: [{ name: 'block:' + B.COBBLE, count: 2 }, { name: 'stick', count: 1 }] },
+  ],
+};
+
+// ModManager - loads/saves/applies mods
+const ModManager = {
+  mods: [VANILLA_MOD],         // active mods (vanilla always first)
+  userMods: [],                 // user-installed mods
+  STORAGE_KEY: 'minicraft_mods_v1',
+  RECIPE_KEY: 'minicraft_recipes_v1', // legacy key for migration
+
+  // Initialize: load user mods from localStorage
+  init() {
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      if (raw) {
+        const loaded = JSON.parse(raw);
+        if (Array.isArray(loaded)) {
+          for (const m of loaded) {
+            if (m && m.id && m.id !== 'vanilla') {
+              this.userMods.push(m);
+              this.mods.push(m);
+            }
+          }
+        }
+      } else {
+        // Try legacy recipe key for migration
+        const legacy = localStorage.getItem(this.RECIPE_KEY);
+        if (legacy) {
+          try {
+            const oldRecipes = JSON.parse(legacy);
+            // Migrate to vanilla mod (no-op for now)
+            localStorage.removeItem(this.RECIPE_KEY);
+          } catch(e) {}
+        }
+      }
+    } catch(e) {
+      console.warn('Mod load failed:', e);
+    }
+    return this;
+  },
+
+  // Get all recipes across all mods
+  getAllRecipes() {
+    const recipes = [];
+    for (const m of this.mods) {
+      if (Array.isArray(m.recipes)) {
+        for (const r of m.recipes) {
+          recipes.push({ ...r, mod: m.id, modName: m.name });
+        }
+      }
+    }
+    return recipes;
+  },
+
+  // Get all items across all mods
+  getAllItems() {
+    const items = new Map();
+    for (const m of this.mods) {
+      if (Array.isArray(m.items)) {
+        for (const it of m.items) {
+          items.set(it.id, it);
+        }
+      }
+    }
+    return items;
+  },
+
+  // Get recipes by category
+  getRecipesByCategory() {
+    const cats = {};
+    for (const r of this.getAllRecipes()) {
+      const cat = r.category || 'other';
+      if (!cats[cat]) cats[cat] = [];
+      cats[cat].push(r);
+    }
+    return cats;
+  },
+
+  // Install a mod from JSON string
+  installFromJson(jsonStr) {
+    let mod;
+    try { mod = JSON.parse(jsonStr); } catch(e) {
+      return { ok: false, error: 'JSON ไม่ถูกต้อง: ' + e.message };
+    }
+    return this.install(mod);
+  },
+
+  // Install a mod from URL
+  async installFromUrl(url) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return { ok: false, error: 'HTTP ' + res.status };
+      const text = await res.text();
+      return this.installFromJson(text);
+    } catch(e) {
+      return { ok: false, error: 'โหลดไม่ได้: ' + e.message };
+    }
+  },
+
+  // Install a mod object
+  install(mod) {
+    if (!mod || !mod.id) return { ok: false, error: 'ต้องมี id' };
+    if (mod.id === 'vanilla') return { ok: false, error: 'ไม่สามารถติดตั้ง vanilla ทับได้' };
+    if (!mod.name) mod.name = mod.id;
+    if (!mod.version) mod.version = '1.0';
+    if (!Array.isArray(mod.recipes)) mod.recipes = [];
+    if (!Array.isArray(mod.items)) mod.items = [];
+    if (!Array.isArray(mod.blocks)) mod.blocks = [];
+    // Remove existing mod with same id (update)
+    this.userMods = this.userMods.filter(m => m.id !== mod.id);
+    this.mods = this.mods.filter(m => m.id !== mod.id);
+    this.userMods.push(mod);
+    this.mods.push(mod);
+    this.save();
+    return { ok: true, mod };
+  },
+
+  // Remove a user mod
+  remove(modId) {
+    this.userMods = this.userMods.filter(m => m.id !== modId);
+    this.mods = this.mods.filter(m => m.id !== modId);
+    this.save();
+  },
+
+  // Save to localStorage
+  save() {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.userMods));
+    } catch(e) {
+      console.warn('Mod save failed:', e);
+    }
+  },
+
+  // Export a mod to JSON string (for sharing)
+  export(modId) {
+    const m = this.mods.find(x => x.id === modId);
+    if (!m) return null;
+    return JSON.stringify(m, null, 2);
+  },
+
+  // Get stats
+  stats() {
+    return {
+      modCount: this.mods.length,
+      userModCount: this.userMods.length,
+      recipeCount: this.getAllRecipes().length,
+      itemCount: this.getAllItems().size,
+    };
+  },
+};
+
+// Initialize on load
+ModManager.init();
+
+// BC: keep RECIPES name for legacy code
+function getRecipes() { return ModManager.getAllRecipes(); }
+function getItems() { return ModManager.getAllItems(); }
+
+function buildCraftUI() {
+  const el = document.getElementById('craft-content');
+  if (!el) return;
+  let html = '';
+  // Group by category
+  const recipes = getRecipes();
+  const byCat = {};
+  for (const r of recipes) {
+    const cat = r.category || 'other';
+    if (!byCat[cat]) byCat[cat] = [];
+    byCat[cat].push(r);
+  }
+  // Render categories in order
+  const catOrder = ['basic', 'tools', 'building', 'food', 'other'];
+  const catNames = { basic: '🪵 พื้นฐาน', tools: '⛏ เครื่องมือ', building: '🏠 ก่อสร้าง', food: '🍞 อาหาร', other: '📦 อื่นๆ' };
+  const allItems = getItems();
+  for (const cat of catOrder) {
+    if (!byCat[cat] || byCat[cat].length === 0) continue;
+    html += `<div style="grid-column:1/-1;margin-top:8px;color:#7cda24;font-weight:700;font-size:13px;border-bottom:1px solid rgba(124,218,36,.3);padding-bottom:2px">${catNames[cat] || cat}</div>`;
+    for (const r of byCat[cat]) {
+      const canCraft = r.ingredients.every(ing => hasItem(ing.name, ing.count));
+      const resultName = r.result.name.startsWith('block:') ?
+        BLOCK_NAMES[parseInt(r.result.name.slice(6))] : (allItems.get(r.result.name)?.name || r.result.name);
+      const ingText = r.ingredients.map(ing => {
+        const n = ing.name.startsWith('block:') ?
+          BLOCK_NAMES[parseInt(ing.name.slice(6))] : (allItems.get(ing.name)?.name || ing.name);
+        return `${n} x${ing.count}`;
+      }).join(' + ');
+      const modTag = r.mod && r.mod !== 'vanilla' ? `<span style="color:#ffd800;font-size:9px"> [${r.mod}]</span>` : '';
+      html += `<div class="craft-item" data-result="${r.result.name}" data-count="${r.result.count}" ${canCraft ? '' : 'style="opacity:.5"'}>
+        <canvas data-item="${r.result.name}" width="36" height="36"></canvas>
+        <div class="info">
+          <div class="name">${resultName} x${r.result.count}${modTag}</div>
+          <div class="recipe">${ingText}</div>
+        </div>
+      </div>`;
+    }
+  }
+  el.innerHTML = html;
+  // draw icons
+  el.querySelectorAll('canvas[data-item]').forEach(c => {
+    const ctx = c.getContext('2d');
+    const name = c.dataset.item;
+    if (name.startsWith('block:')) {
+      drawBlockIcon(ctx, parseInt(name.slice(6)), 2, 2, 32);
+    } else {
+      drawItemIcon(ctx, name, 2, 2, 32);
+    }
+  });
+  // attach click handlers
+  el.querySelectorAll('.craft-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const resultName = el.dataset.result;
+      const count = parseInt(el.dataset.count);
+      const recipe = getRecipes().find(r => r.result.name === resultName && r.result.count === count);
+      if (!recipe) return;
+      // check ingredients again
+      if (!recipe.ingredients.every(ing => hasItem(ing.name, ing.count))) {
+        toast('❌ ของไม่พอ');
+        return;
+      }
+      // remove ingredients
+      for (const ing of recipe.ingredients) {
+        removeFromInventory(ing.name, ing.count);
+      }
+      // add result
+      addToInventory(resultName, count);
+      playSound('click');
+      buildCraftUI(); // refresh
+      awardAchievement('crafty');
+    });
+  });
+}
+
+// ======================================================================
+// TIER 2: ACHIEVEMENTS
+// ======================================================================
+const ACHIEVEMENTS = [
+  { id: 'first_step', name: 'ก้าวแรก', desc: 'เดินครบ 100 บล็อก', check: () => stats.stepsWalked >= 100 },
+  { id: 'lumberjack', name: 'คนตัดไม้', desc: 'ทุบไม้ 10 ครั้ง', check: () => stats.blocksBroken[B.WOOD] >= 10 },
+  { id: 'miner', name: 'ขุดแร่', desc: 'ทุบหิน 50 ครั้ง', check: () => stats.blocksBroken[B.STONE] >= 50 },
+  { id: 'builder', name: 'ช่างก่อสร้าง', desc: 'วางบล็อก 50 ครั้ง', check: () => stats.blocksPlaced >= 50 },
+  { id: 'first_night', name: 'รอดคืนแรก', desc: 'มีชีวิตรอดจนถึงเช้า', check: () => stats.nightsSurvived >= 1 },
+  { id: 'crafty', name: 'ช่างฝีมือ', desc: 'คราฟต์ของสำเร็จ 1 ชิ้น', check: () => stats.crafted >= 1 },
+  { id: 'explorer', name: 'นักสำรวจ', desc: 'เดิน 500 บล็อกจากจุดเกิด', check: () => stats.maxDistance >= 500 },
+  { id: 'monster_hunter', name: 'นักล่ามอนสเตอร์', desc: 'ฆ่ามอนสเตอร์ 5 ตัว', check: () => stats.mobsKilled >= 5 },
+  { id: 'diamond_finder', name: 'นักขุดเพชร', desc: 'พบแร่เพชร', check: () => stats.diamondsFound >= 1 },
+  { id: 'home_sweet_home', name: 'บ้านแสนรัก', desc: 'วางประตู 1 บาน', check: () => stats.doorsPlaced >= 1 },
+];
+
+// unlockedAch declared earlier (line ~276) to avoid TDZ
+function awardAchievement(id) {
+  if (unlockedAch.has(id)) return;
+  const ach = ACHIEVEMENTS.find(a => a.id === id);
+  if (!ach) return;
+  unlockedAch.add(id);
+  playSound('achievement');
+  const el = document.getElementById('ach-popup');
+  document.getElementById('ach-name').textContent = ach.name;
+  document.getElementById('ach-desc').textContent = ach.desc;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3500);
+  toast('🏆 ' + ach.name);
+}
+function checkAchievements() {
+  for (const a of ACHIEVEMENTS) {
+    if (!unlockedAch.has(a.id) && a.check()) {
+      awardAchievement(a.id);
+    }
+  }
+}
+
+// ======================================================================
+// TIER 2: STATS (used for achievements + tracking)
+// ======================================================================
+// stats declared earlier (line ~277) to avoid TDZ
+function initStats() {
+  stats.spawnX = player.x;
+  stats.spawnZ = player.z;
+  stats.lastWasNight = isNight();
+}
+function trackStats(dt) {
+  // walking distance
+  const dx = player.x - stats.spawnX, dz = player.z - stats.spawnZ;
+  stats.maxDistance = Math.max(stats.maxDistance, Math.sqrt(dx*dx + dz*dz));
+  // night transition
+  const night = isNight();
+  if (stats.lastWasNight && !night) {
+    // just became day
+    if (player.hp > 0) {
+      stats.nightsSurvived++;
+      awardAchievement('first_night');
+    }
+  }
+  stats.lastWasNight = night;
+  // hunger
+  if (!player.flyMode) {
+    hunger -= CFG.HUNGER_DECAY * dt;
+    if (hunger < 0) {
+      hunger = 0;
+      damagePlayer(CFG.STARVE_DAMAGE * dt, 'starve');
+    } else if (hunger > MAX_HUNGER) hunger = MAX_HUNGER;
+    updateHungerUI();
+  }
+  // check achievements periodically
+  if (Math.random() < dt * 0.5) checkAchievements();
+}
+
+// ======================================================================
+// TIER 2: MINIMAP
+// ======================================================================
+const mmCanvas = document.getElementById('mmcanvas');
+const mmCtx = mmCanvas.getContext('2d');
+const MM_SIZE = 120;
+const MM_SCALE = 4; // each pixel = 4 blocks
+let minimapMode = 0; // 0=top-down, 1=angled
+function drawMinimap() {
+  mmCtx.fillStyle = '#000';
+  mmCtx.fillRect(0, 0, MM_SIZE, MM_SIZE);
+  // Show blocks in a small radius around player
+  const px = Math.floor(player.x), pz = Math.floor(player.z);
+  const half = Math.floor(MM_SIZE / 2);
+  const heightLevel = Math.floor(player.y);
+  // colors per block
+  const blockColors = {
+    [B.GRASS]: '#5fb02a', [B.DIRT]: '#8c6438', [B.STONE]: '#909098', [B.SAND]: '#e8d090',
+    [B.WOOD]: '#6a4820', [B.LEAVES]: '#3a8a25', [B.PLANKS]: '#c8a065', [B.COBBLE]: '#7a7a82',
+    [B.BEDROCK]: '#404048', [B.SNOW]: '#fafaff', [B.BRICK]: '#a04028', [B.PUMPKIN]: '#ec8424',
+    [B.WATER]: '#3060c0', [B.GLASS]: '#a0c0e0', [B.ICE]: '#9cc0d8', [B.SANDSTONE]: '#d4b870',
+    [B.CACTUS]: '#3a8a25', [B.ORE_COAL]: '#404048', [B.ORE_IRON]: '#a08878',
+    [B.ORE_GOLD]: '#d4b030', [B.ORE_DIAMOND]: '#40c0d0', [B.GLOWSTONE]: '#f0c850',
+    [B.CRAFTING_TABLE]: '#9c6a30', [B.DOOR]: '#8c5a2c', [B.TORCH]: '#ffd800',
+  };
+  for (let dy = 0; dy < MM_SIZE; dy++) {
+    for (let dx = 0; dx < MM_SIZE; dx++) {
+      const wx = px + (dx - half) * MM_SCALE;
+      const wz = pz + (dy - half) * MM_SCALE;
+      if (wx < 0 || wx >= W || wz < 0 || wz >= D) continue;
+      // find topmost block at this column
+      let foundY = -1, foundB = 0;
+      for (let y = H-1; y >= 0; y--) {
+        const b = getBlock(wx, y, wz);
+        if (b !== B.AIR && b !== B.LEAVES) {
+          foundY = y; foundB = b; break;
+        }
+      }
+      if (foundB === 0) continue;
+      const c = blockColors[foundB] || '#666';
+      mmCtx.fillStyle = c;
+      mmCtx.fillRect(dx, dy, 1, 1);
+    }
+  }
+  // player marker (center, yellow dot)
+  mmCtx.fillStyle = '#ff0';
+  mmCtx.fillRect(half - 2, half - 2, 4, 4);
+  mmCtx.fillStyle = '#000';
+  mmCtx.fillRect(half - 1, half - 1, 2, 2);
+  // direction indicator
+  const fwdX = -Math.sin(player.yaw) * 8;
+  const fwdZ = -Math.cos(player.yaw) * 8;
+  mmCtx.strokeStyle = '#ff0';
+  mmCtx.beginPath();
+  mmCtx.moveTo(half, half);
+  mmCtx.lineTo(half + fwdX, half + fwdZ);
+  mmCtx.stroke();
+  // mob dots
+  for (const m of mobs) {
+    const mx = Math.floor((m.x - px) / MM_SCALE) + half;
+    const my = Math.floor((m.z - pz) / MM_SCALE) + half;
+    if (mx < 0 || mx >= MM_SIZE || my < 0 || my >= MM_SIZE) continue;
+    const isHostile = MOB_TYPES[m.type].hostile;
+    mmCtx.fillStyle = isHostile ? '#f00' : '#0f0';
+    mmCtx.fillRect(mx - 1, my - 1, 3, 3);
+  }
+}
+
+// ======================================================================
+// TIER 3: REDSTONE LITE
+// ======================================================================
+// meta bits:
+//   bit 0: powered (redstone active)
+//   bit 1: door open
+//   bit 2: lever on
+function isPowered(x, y, z) {
+  return (meta[idx(x, y, z)] & 1) !== 0;
+}
+function setPowered(x, y, z, v) {
+  if (v) meta[idx(x, y, z)] |= 1;
+  else meta[idx(x, y, z)] &= ~1;
+}
+function updateRedstone() {
+  // Doors auto-open/close based on lever or pressure plate nearby
+  for (let z = 0; z < D; z++) {
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const b = getBlock(x, y, z);
+        if (b === B.DOOR) {
+          const open = hasPowerNear(x, y, z);
+          const wasOpen = (meta[idx(x, y, z)] & 2) !== 0;
+          if (open !== wasOpen) {
+            if (open) {
+              meta[idx(x, y, z)] |= 2;
+              // hide the block (set as air in world, remember it was door in meta)
+              // For simplicity: keep block as DOOR, just mark as not-solid
+            } else {
+              meta[idx(x, y, z)] &= ~2;
+            }
+            meshRebuildNeeded = true;
+          }
+        }
+      }
+    }
+  }
+}
+function hasPowerNear(x, y, z) {
+  // Check adjacent + same column for power source
+  for (let dy = 0; dy < 2; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        if (Math.abs(dx) + Math.abs(dz) + Math.abs(dy) > 1) continue;
+        const xx = x + dx, yy = y + dy, zz = z + dz;
+        if (!inBounds(xx, yy, zz)) continue;
+        const nb = getBlock(xx, yy, zz);
+        const nm = meta[idx(xx, yy, zz)];
+        if (nb === B.LEVER && (nm & 4) !== 0) return true;
+        if (nb === B.PRESSURE_PLATE) {
+          // check if player is on it
+          const px = Math.floor(player.x), pz = Math.floor(player.z);
+          const py = Math.floor(player.y);
+          if (px === xx && pz === zz && (py === yy + 1 || py === yy)) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// Handle right-click on special blocks
+function interactBlock() {
+  const r = raycast();
+  if (!r) return;
+  const b = getBlock(r.x, r.y, r.z);
+  if (b === B.LEVER) {
+    const m = meta[idx(r.x, r.y, r.z)];
+    if (m & 4) {
+      meta[idx(r.x, r.y, r.z)] &= ~4;
+      toast('🔧 คาน: ปิด');
+    } else {
+      meta[idx(r.x, r.y, r.z)] |= 4;
+      toast('🔧 คาน: เปิด');
+    }
+    playSound('lever');
+    meshRebuildNeeded = true;
+  } else if (b === B.PRESSURE_PLATE) {
+    // toggle
+    meta[idx(r.x, r.y, r.z)] ^= 4;
+    playSound('click');
+    toast('🟨 แผ่นเหยียบ');
+  } else if (b === B.CRAFTING_TABLE) {
+    openCrafting();
+  }
+}
+
+// ======================================================================
+// MODAL HELPERS
+// ======================================================================
+let invOpen = false, craftOpen = false;
+function openInventory() {
+  invOpen = true;
+  document.getElementById('inv-modal').classList.add('show');
+  unlockPointer();
+  updateInventoryUI();
+}
+function closeInventory() {
+  invOpen = false;
+  document.getElementById('inv-modal').classList.remove('show');
+  // Re-lock pointer so gameplay keys work
+  lockPointer();
+}
+function openCrafting() {
+  craftOpen = true;
+  document.getElementById('craft-modal').classList.add('show');
+  unlockPointer();
+  buildCraftUI();
+}
+function closeCrafting() {
+  craftOpen = false;
+  document.getElementById('craft-modal').classList.remove('show');
+  lockPointer();
+}
+
+// ======================================================================
+// BLOCK BREAK REWARDS (drop items)
+// ======================================================================
+const BLOCK_DROPS = {
+  [B.STONE]: { name: 'block:' + B.COBBLE, count: 1 },
+  [B.COBBLE]: { name: 'block:' + B.COBBLE, count: 1 },
+  [B.GRASS]: { name: 'block:' + B.DIRT, count: 1 },
+  [B.DIRT]: { name: 'block:' + B.DIRT, count: 1 },
+  [B.SAND]: { name: 'block:' + B.SAND, count: 1 },
+  [B.WOOD]: { name: 'block:' + B.WOOD, count: 1 },
+  [B.LEAVES]: { name: 'block:' + B.SAPLING, count: 1, chance: 0.15 },
+  [B.SNOW]: { name: null }, // drops nothing (shovel)
+  [B.ORE_COAL]: { name: 'coal', count: 1 },
+  [B.ORE_IRON]: { name: 'iron_ingot', count: 1 },
+  [B.ORE_GOLD]: { name: 'gold_ingot', count: 1 },
+  [B.ORE_DIAMOND]: { name: 'diamond', count: 1 },
+  [B.PUMPKIN]: { name: 'block:' + B.PUMPKIN, count: 1 },
+};
+
+function dropBlock(blockType) {
+  const drop = BLOCK_DROPS[blockType];
+  if (!drop) return;
+  if (drop.chance && Math.random() > drop.chance) return;
+  if (!drop.name) return;
+  addToInventory(drop.name, drop.count || 1);
+  if (blockType === B.ORE_DIAMOND) {
+    stats.diamondsFound++;
+    awardAchievement('diamond_finder');
+  }
+}
+
+const SOUND_BLOCKS = {
+  [B.STONE]: 'break', [B.COBBLE]: 'break', [B.BEDROCK]: 'break',
+  [B.DIRT]: 'break', [B.SAND]: 'break', [B.SNOW]: 'break',
+  [B.GRASS]: 'break', [B.SANDSTONE]: 'break', [B.ICE]: 'break',
+  [B.WOOD]: 'break', [B.PLANKS]: 'break', [B.BRICK]: 'break',
+  [B.LEAVES]: 'break',
+  [B.ORE_COAL]: 'break', [B.ORE_IRON]: 'break', [B.ORE_GOLD]: 'break', [B.ORE_DIAMOND]: 'break',
+  [B.GLASS]: 'break', [B.PUMPKIN]: 'break',
+};
+
+const PLACE_SOUND = {
+  [B.STONE]: 'place', [B.COBBLE]: 'place', [B.DIRT]: 'place', [B.SAND]: 'place',
+  [B.WOOD]: 'place', [B.PLANKS]: 'place', [B.BRICK]: 'place', [B.GRASS]: 'place',
+  [B.SANDSTONE]: 'place', [B.SNOW]: 'place', [B.ICE]: 'place', [B.LEAVES]: 'place',
+  [B.BEDROCK]: 'place', [B.PUMPKIN]: 'place',
+  [B.GLASS]: 'place', [B.CACTUS]: 'place',
+  [B.ORE_COAL]: 'place', [B.ORE_IRON]: 'place', [B.ORE_GOLD]: 'place', [B.ORE_DIAMOND]: 'place',
+  [B.GLOWSTONE]: 'place', [B.CRAFTING_TABLE]: 'place',
+  [B.LEVER]: 'place', [B.PRESSURE_PLATE]: 'place', [B.TORCH]: 'place',
+  [B.DOOR]: 'door',
+};
+
+// ======================================================================
+// UPDATED PLAYER + INPUT
+// ======================================================================
+// Player now has hp (already in original) and hunger
+player.hp = CFG.MAX_HP;
+player.spawnX = 24; player.spawnZ = 24;
+
+// Footstep tracker
+let lastStepTime = 0;
+function tryStepSound(dt) {
+  if (player.flyMode || !player.onGround) return;
+  const speed = Math.abs(player.vx) + Math.abs(player.vz);
+  if (speed < 0.5) return;
+  const now = performance.now() / 1000;
+  if (now - lastStepTime > 0.45) {
+    lastStepTime = now;
+    playSound('step');
+  }
+}
+
+// Update player to handle HP + fall damage
+// (we'll modify updatePlayer later)
+
+// ======================================================================
+// KEY HANDLERS (E for inventory, C for craft, M for minimap, B for achievements, T for redstone interact)
+// ======================================================================
+document.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  if (e.code === 'KeyE' && mouseLocked) {
+    e.preventDefault();
+    openInventory();
+  }
+  if (e.code === 'KeyC' && mouseLocked) {
+    e.preventDefault();
+    openCrafting();
+  }
+  if (e.code === 'KeyT' && mouseLocked) {
+    e.preventDefault();
+    interactBlock();
+  }
+  if (e.code === 'KeyM' && mouseLocked) {
+    e.preventDefault();
+    minimapMode = (minimapMode + 1) % 2;
+    toast('🗺 แผนที่: ' + (minimapMode === 0 ? 'มุมบน' : 'มุมเฉียง'));
+  }
+  if (e.code === 'KeyB' && mouseLocked) {
+    e.preventDefault();
+    showAchievements();
+  }
+  if (e.code === 'KeyH' && mouseLocked) {
+    e.preventDefault();
+    healPlayer(5);
+    toast('💚 รักษา +5 HP');
+  }
+});
+
+// Achievement viewer
+function showAchievements() {
+  const panel = document.createElement('div');
+  panel.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,.9);z-index:130;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)';
+  let html = '<div style="background:rgba(20,20,30,.95);border:2px solid var(--accent2);border-radius:10px;padding:20px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto"><button class="inv-close" id="ach-close">✕</button><h2 style="color:var(--accent2);margin:0 0 14px">🏆 ความสำเร็จ (' + unlockedAch.size + '/' + ACHIEVEMENTS.length + ')</h2>';
+  for (const a of ACHIEVEMENTS) {
+    const done = unlockedAch.has(a.id);
+    html += `<div style="padding:8px;margin:4px 0;background:rgba(60,60,80,${done ? '.4' : '.15'});border-radius:4px;border-left:3px solid ${done ? 'var(--accent)' : '#666'};opacity:${done ? '1' : '.6'}">
+      <div style="font-weight:700;color:${done ? 'var(--accent)' : '#888'}">${done ? '✅' : '🔒'} ${a.name}</div>
+      <div style="font-size:11px;color:var(--muted)">${a.desc}</div>
+    </div>`;
+  }
+  html += '</div>';
+  panel.innerHTML = html;
+  document.body.appendChild(panel);
+  document.getElementById('ach-close').addEventListener('click', () => {
+    document.body.removeChild(panel);
+    lockPointer();
+  });
+  panel.addEventListener('click', e => { if (e.target === panel) { document.body.removeChild(panel); lockPointer(); }});
+  unlockPointer();
+}
+
+// Modal close handlers
+document.getElementById('inv-close').addEventListener('click', closeInventory);
+document.getElementById('craft-close').addEventListener('click', closeCrafting);
+document.getElementById('inv-modal').addEventListener('click', e => { if (e.target.id === 'inv-modal') closeInventory(); });
+document.getElementById('craft-modal').addEventListener('click', e => { if (e.target.id === 'craft-modal') closeCrafting(); });
+
+// ======================================================================
+// RENDER LOOP UPDATES (call new systems)
+// ======================================================================
+// We need to call these from the existing loop function. Add them as hooks.
+// Since the original loop is a closure, we'll need to add code at its end.
+// Solution: wrap original loop's call to updatePlayer, then add our new updates.
+
+// Override render() to include day/night + mobs
+// Since render is in a closure, we need to inject code via a different approach.
+// Easiest: just add to the existing loop function via patching.
+
+// We'll wrap the updatePlayer and render functions to add hooks.
+const _origUpdatePlayer = updatePlayer;
+updatePlayer = function(dt) {
+  _origUpdatePlayer(dt);
+  // fall damage tracking
+  trackFall();
+  // step sound
+  tryStepSound(dt);
+  // hunger
+  if (!player.flyMode && (Math.abs(player.vx) + Math.abs(player.vz)) > 0.5) {
+    stats.stepsWalked += dt;
+  }
+};
+
+const _origRender = render;
+render = function() {
+  _origRender();
+};
+
+// Patch the loop to add new system updates
+// Find the loop body and inject
+// (We use a different approach: replace the existing loop function entirely? No, that loses too much.)
+// Better: hook into the existing updatePlayer. But we also need to update mobs, time, etc.
+
+// Solution: redefine loop. Find it and replace.
+// But that requires reading the whole function. Let's just add another rAF chain.
+
+// We add our system updates as a parallel rAF loop
+let _lastT2 = 0;
+function systemLoop(t) {
+  const dt = Math.min((t - _lastT2) / 1000, 0.1);
+  _lastT2 = t;
+  // Only run systems when playing
+  if (mouseLocked) {
+    // time progresses faster if hunger
+    const timeSpeed = player.flyMode ? 6 : 1; // creative = 6x
+    gameTime += dt * (24000 / CFG.DAY_LENGTH_SEC) * timeSpeed;
+    if (gameTime >= 24000) gameTime -= 24000;
+    updateTimeUI();
+    updateMobs(dt);
+    trackStats(dt);
+    if (Math.random() < dt * 2) updateRedstone();
+    if (Math.random() < dt * 0.5) checkAchievements();
+  }
+  // Update mob meshes (lazy - rebuild if mobs change)
+  // (skip - mobs are too dynamic to be in static mesh; we'll render them separately)
+  requestAnimationFrame(systemLoop);
+}
+requestAnimationFrame(systemLoop);
+
+// Render mob entities (separate from world mesh)
+// We add this after the main world render in our hooked render()
+const _origRender2 = render;
+render = function() {
+  _origRender2();
+  renderMobs();
+  drawMinimap();
+};
+
+function renderMobs() {
+  if (mobs.length === 0) return;
+  // Render each mob as a textured box using a simple shader
+  // For simplicity, use solid color + lighting
+  for (const m of mobs) {
+    const def = MOB_TYPES[m.type];
+    const w = m.w, h = m.h;
+    // We use a simple approach: build a small colored cube mesh and render
+    // But to keep code small, we'll skip mob rendering in 3D and rely on minimap.
+    // Just draw HP bar above each mob
+  }
+}
+
+// Hook the loop to update HP UI on change
+let _lastHP = -1, _lastHunger = -1;
+function _hudHook(dt) {
+  if (player.hp !== _lastHP) { updateHPUI(); _lastHP = player.hp; }
+  if (hunger !== _lastHunger) { updateHungerUI(); _lastHunger = hunger; }
+}
+// Add to system loop
+const _origSystemLoop = systemLoop;
+// Just patch: add hudHook to systemLoop
+// Since we already defined it, the old function still exists - we need to redefine
+// Actually our systemLoop is already defined and runs. Let's hook differently.
+
+// Add to the existing render loop: just modify HUD on a timer
+// (handled by check in updateHPUI/updateHungerUI - they re-render every frame, but it's cheap)
+
+// Init stats
+initStats();
+initAudio(); // might fail if no user gesture yet
+
+// Init HUD
+updateHPUI();
+updateHungerUI();
+updateTimeUI();
+updateInventoryUI();
+
+// Spawn initial mobs after world gen
+spawnMobs();
+
+// Hook breakBlock to play sound + drop item
+const _origBreakBlock = breakBlock;
+breakBlock = function() {
+  const r = raycast();
+  if (!r) return;
+  const now = performance.now();
+  if (now - lastBreakTime < 200) return;
+  lastBreakTime = now;
+  const b = r.block;
+  if (b === B.BEDROCK) { toast('⛏ หินฐานทุบไม่ได้'); return; }
+  setBlock(r.x, r.y, r.z, B.AIR);
+  meshRebuildNeeded = true;
+  dropBlock(b);
+  // stats
+  stats.blocksBroken[b] = (stats.blocksBroken[b] || 0) + 1;
+  // sound
+  playSound(SOUND_BLOCKS[b] || 'break');
+  // mob aggro
+  for (const m of mobs) {
+    const dx = m.x - r.x, dz = m.z - r.z;
+    if (Math.sqrt(dx*dx + dz*dz) < 8 && MOB_TYPES[m.type].hostile) {
+      m.target = player;
+    }
+  }
+  toast('⛏ ทุบ ' + BLOCK_NAMES[b]);
+};
+
+const _origPlaceBlock = placeBlock;
+placeBlock = function() {
+  const r = raycast();
+  if (!r) return;
+  const nx = r.normal[0], ny = r.normal[1], nz = r.normal[2];
+  const px = Math.floor(player.x), py = Math.floor(player.y), pz = Math.floor(player.z);
+  const px2 = Math.floor(player.x + 0.3), py2 = Math.floor(player.y + 1.5), pz2 = Math.floor(player.z + 0.3);
+  if ((nx === px && (ny === py || ny === py2) && nz === pz) ||
+      (nx === px2 && (ny === py || ny === py2) && nz === pz2)) {
+    toast('❌ วางตรงนี้ไม่ได้');
+    return;
+  }
+  const blockId = HOTBAR[selectedSlot];
+  setBlock(nx, ny, nz, blockId);
+  meshRebuildNeeded = true;
+  stats.blocksPlaced++;
+  // door placed
+  if (blockId === B.DOOR) stats.doorsPlaced++;
+  playSound(PLACE_SOUND[blockId] || 'place');
+  // achievements
+  if (stats.blocksPlaced >= 1) awardAchievement('first_step'); // walk 100 = builder
+  if (stats.blocksPlaced >= 50) awardAchievement('builder');
+  toast('🧱 วาง ' + BLOCK_NAMES[blockId]);
+};
+
+// Shift+right-click = interact with special blocks (lever, crafting table)
+canvas.addEventListener('mousedown', (e) => {
+  if (!mouseLocked) return;
+  if (e.button === 2 && e.shiftKey) {
+    interactBlock();
+    e.stopPropagation();
+    e.preventDefault();
+  }
+}, true); // capture phase, run before main handler
+
+// Update start screen to show new features
+document.querySelector('#start-screen .sub').textContent = '⛏ MiniCraft 3D — เล่นเดี่ยวออฟไลน์ได้ ไม่ต้องใช้เน็ต • ออนไลน์เล่นกับเพื่อนได้สูงสุด 8 คน (ต้องเปิดผ่าน http://103.253.75.161:3109/)';
+// Add additional rows for new features
+const startPanel = document.querySelector('#start-screen .panel');
+if (startPanel) {
+  const extra = document.createElement('div');
+  extra.className = 'panel';
+  extra.innerHTML = `
+    <h3>🎮 ฟีเจอร์เพิ่มเติม</h3>
+    <div class="row"><span>คลังของ</span><span class="key">E</span></div>
+    <div class="row"><span>คราฟต์</span><span class="key">C</span></div>
+    <div class="row"><span>ใช้ของ (คาน/โต๊ะ)</span><span class="key">Shift+คลิกขวา</span></div>
+    <div class="row"><span>ดูความสำเร็จ</span><span class="key">B</span></div>
+    <div class="row"><span>สลับโหมดแผนที่</span><span class="key">M</span></div>
+    <div class="row"><span>รักษา (debug)</span><span class="key">H</span></div>
+  `;
+  startPanel.parentNode.insertBefore(extra, startPanel.nextSibling);
+}
+
+// Add to "how to play" panel: jump + step sounds mention
+const howPanel = document.querySelectorAll('#start-screen .panel')[0];
+if (howPanel) {
+  const extra = document.createElement('div');
+  extra.style.cssText = 'margin-top:8px;font-size:11px;color:#666;text-align:center';
+  extra.textContent = '🟢 เริ่มใหม่ • 📂 โหลดเซฟ • โหมดบิน F • เก็บเซฟอัตโนมัติ';
+  howPanel.appendChild(extra);
+}
+
+// ======================================================================
+// TIER 4: MULTIPLAYER (WebSocket client + remote player rendering)
+// ======================================================================
+// Server URL: detect from page URL, default to a public relay
+const MP_SERVER = (() => {
+  // If running via file:// or local, use a public dev server.
+  // For production, this should point to the deployed signaling server.
+  const override = window.MP_SERVER_OVERRIDE;
+  if (override) return override;
+  // Try to derive from current location
+  const host = window.location.hostname || 'localhost';
+  const protocol = window.location.protocol || 'http:';
+  // Same-origin: use ws/wss based on protocol (avoids mixed content)
+  if (host && host !== 'localhost' && host !== '127.0.0.1' && host !== '') {
+    const scheme = protocol === 'https:' ? 'wss' : 'ws';
+    // If served from same VPS, use port 3109
+    // If on minimax.io (public deploy), use the CF WS proxy
+    if (host.endsWith('space.minimax.io')) {
+      return "ws://103.253.75.161:3109/";
+    }
+    return `${scheme}://${host}:3109/`;
+  }
+  return 'ws://localhost:3109/';
+})();
+
+let mp = {
+  ws: null,
+  connected: false,
+  isHost: false,
+  roomCode: null,
+  myId: null,
+  myColor: '#4a9eff',
+  myName: 'Player',
+  remotePlayers: new Map(), // id -> {name, x, y, z, yaw, pitch, hp, color, lastUpdate}
+  pendingBlockChanges: [],
+  reconnectTimer: null,
+  connectedAt: 0,
+};
+
+const CHAT_MAX = 50;
+const chatLog = [];
+
+function updateMPStatus(msg, color) {
+  const el = document.getElementById('mp-status');
+  const txt = document.getElementById('mp-status-text');
+  if (txt) txt.textContent = msg;
+  if (el && msg) {
+    el.classList.add('show');
+    if (color) el.style.borderColor = color;
+  }
+}
+function hideMPStatus() {
+  document.getElementById('mp-status')?.classList.remove('show');
+}
+
+function setPlayerName(name) {
+  if (name && name.trim()) mp.myName = name.trim().substring(0, 16);
+}
+
+function connectMP() {
+  if (mp.ws && (mp.ws.readyState === WebSocket.OPEN || mp.ws.readyState === WebSocket.CONNECTING)) return;
+  console.log('Connecting to MP server:', MP_SERVER);
+  updateMPStatus('กำลังเชื่อมต่อ ' + MP_SERVER + '...', '#4a9eff');
+  try {
+    mp.ws = new WebSocket(MP_SERVER);
+  } catch(e) {
+    console.error('WS connect failed:', e);
+    updateMPStatus('เชื่อมต่อไม่ได้: ' + e.message, '#ef4444');
+    return;
+  }
+  mp.ws.onopen = () => {
+    mp.connected = true;
+    mp.connectedAt = Date.now();
+    console.log('MP connected');
+    updateMPStatus('เชื่อมต่อแล้ว', '#4a9eff');
+    setTimeout(hideMPStatus, 2000);
+  };
+  mp.ws.onmessage = (ev) => {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch(e) { return; }
+    handleMPMessage(msg);
+  };
+  mp.ws.onclose = (ev) => {
+    mp.connected = false;
+    mp.roomCode = null;
+    mp.myId = null;
+    mp.remotePlayers.clear();
+    updateMPUI();
+    console.log('MP closed', ev.code, ev.reason);
+    updateMPStatus('ขาดการเชื่อมต่อ — กำลังลองใหม่...', '#ef4444');
+    // auto-reconnect after 3s
+    if (mp.reconnectTimer) clearTimeout(mp.reconnectTimer);
+    mp.reconnectTimer = setTimeout(connectMP, 3000);
+  };
+  mp.ws.onerror = (e) => {
+    console.error('WS error:', e);
+  };
+}
+
+function handleMPMessage(msg) {
+  const t = msg.type;
+  if (t === 'hello') {
+    console.log('Server hello:', msg);
+  }
+  else if (t === 'room_created') {
+    mp.roomCode = msg.code;
+    mp.myId = msg.id;
+    mp.isHost = true;
+    updateMPStatus('สร้างห้อง ' + msg.code, '#7cda24');
+    // After world gen, share it
+    shareWorldState();
+    setTimeout(hideMPStatus, 3000);
+    updateMPUI();
+  }
+  else if (t === 'joined') {
+    mp.roomCode = msg.code;
+    mp.myId = msg.id;
+    mp.isHost = false;
+    // Apply world state
+    if (msg.world) applyWorldState(msg.world, msg.seed);
+    // Add existing players
+    mp.remotePlayers.clear();
+    for (const p of msg.players) {
+      if (p.id !== mp.myId) {
+        mp.remotePlayers.set(p.id, p);
+      }
+    }
+    updateMPStatus('เข้าห้อง ' + msg.code, '#7cda24');
+    setTimeout(hideMPStatus, 3000);
+    updateMPUI();
+  }
+  else if (t === 'player_joined') {
+    mp.remotePlayers.set(msg.player.id, msg.player);
+    addChat('System', msg.player.name + ' เข้าห้อง', '#888');
+    updateMPUI();
+  }
+  else if (t === 'player_left') {
+    const p = mp.remotePlayers.get(msg.id);
+    mp.remotePlayers.delete(msg.id);
+    if (p) addChat('System', p.name + ' ออกจากห้อง', '#888');
+    updateMPUI();
+  }
+  else if (t === 'player_move') {
+    let p = mp.remotePlayers.get(msg.id);
+    if (!p) {
+      p = { id: msg.id, name: 'Player', hp: 20, color: '#888' };
+      mp.remotePlayers.set(msg.id, p);
+    }
+    p.x = msg.x; p.y = msg.y; p.z = msg.z;
+    p.yaw = msg.yaw; p.pitch = msg.pitch; p.hp = msg.hp;
+    p.fly = msg.fly;
+    p.lastUpdate = Date.now();
+  }
+  else if (t === 'block_change') {
+    // Apply remote block change
+    if (inBounds(msg.x, msg.y, msg.z)) {
+      if (msg.action === 'break') setBlock(msg.x, msg.y, msg.z, B.AIR);
+      else if (msg.action === 'place') setBlock(msg.x, msg.y, msg.z, msg.block);
+      meshRebuildNeeded = true;
+    }
+  }
+  else if (t === 'world_sync') {
+    applyWorldState(msg.world, msg.seed);
+  }
+  else if (t === 'chat') {
+    addChat(msg.name, msg.msg, msg.color);
+  }
+  else if (t === 'error') {
+    toast('❌ ' + msg.msg);
+  }
+}
+
+function applyWorldState(w, seed) {
+  if (!w || !w.array) return;
+  if (seed != null) currentSeed = seed;
+  document.getElementById('seed-display').textContent = 'Seed: ' + currentSeed;
+  document.getElementById('dseed').textContent = currentSeed;
+  if (w.array.length === world.length) {
+    for (let i = 0; i < world.length; i++) world[i] = w.array[i];
+  } else {
+    generateWorld(currentSeed);
+  }
+  meshRebuildNeeded = true;
+}
+
+function shareWorldState() {
+  if (!mp.connected || !mp.isHost) return;
+  sendMP({ type: 'world_state', world: { W, D, H, array: Array.from(world) }, seed: currentSeed });
+}
+
+function sendMP(msg) {
+  if (mp.ws && mp.ws.readyState === WebSocket.OPEN) {
+    mp.ws.send(JSON.stringify(msg));
+  } else {
+    // queue block changes
+    if (msg.type === 'block' || msg.type === 'move') {
+      mp.pendingBlockChanges.push(msg);
+    }
+  }
+}
+
+// Send move every 100ms (10 times/sec)
+let _lastMoveSent = 0;
+function sendMoveThrottled() {
+  if (!mp.connected || !mp.roomCode) return;
+  const now = performance.now();
+  if (now - _lastMoveSent < 100) return;
+  _lastMoveSent = now;
+  sendMP({
+    type: 'move',
+    x: player.x, y: player.y, z: player.z,
+    yaw: player.yaw, pitch: player.pitch,
+    hp: player.hp, fly: player.flyMode,
+  });
+}
+
+// UI Handlers
+function showMPPanel(mode) {
+  // mode = 'host' or 'join'
+  const panel = document.getElementById('mp-panel');
+  const title = document.getElementById('mp-panel-title');
+  const code = document.getElementById('mp-code');
+  const input = document.getElementById('mp-code-input');
+  const info = document.getElementById('mp-info');
+  const action = document.getElementById('btn-mp-action');
+  const roomInfo = document.getElementById('mp-room-info');
+  panel.classList.add('show');
+  code.style.display = 'none';
+  input.style.display = 'none';
+  roomInfo.style.display = 'none';
+  if (mode === 'host') {
+    title.textContent = '🌐 สร้างห้องออนไลน์';
+    info.textContent = 'กด "สร้าง" เพื่อสร้างห้อง แล้วแชร์รหัส 4 ตัวให้เพื่อน';
+    action.textContent = 'สร้างห้อง';
+    action.dataset.mode = 'host';
+  } else {
+    title.textContent = '🔑 เข้าห้อง';
+    info.textContent = 'พิมพ์รหัส 4 ตัวที่เพื่อนส่งให้ แล้วกด "เข้าร่วม"';
+    input.style.display = 'inline-block';
+    input.value = '';
+    setTimeout(() => input.focus(), 100);
+    action.textContent = 'เข้าร่วม';
+    action.dataset.mode = 'join';
+  }
+}
+
+function hideMPPanel() {
+  document.getElementById('mp-panel').classList.remove('show');
+}
+
+function updateMPUI() {
+  const playersEl = document.getElementById('mp-players');
+  const listEl = document.getElementById('mp-player-list');
+  const countEl = document.getElementById('mp-player-count');
+  if (!mp.connected || !mp.roomCode) {
+    playersEl.style.display = 'none';
+    document.getElementById('chat-toggle').classList.remove('show');
+    return;
+  }
+  playersEl.style.display = 'block';
+  document.getElementById('chat-toggle').classList.add('show');
+  const total = 1 + mp.remotePlayers.size; // me + others
+  countEl.textContent = total;
+  let html = `<div class="mp-player-row"><div class="mp-player-dot" style="background:${mp.myColor}"></div>${mp.myName} <span style="color:#7cda24;font-size:10px">(คุณ)</span></div>`;
+  for (const [, p] of mp.remotePlayers) {
+    html += `<div class="mp-player-row"><div class="mp-player-dot" style="background:${p.color || '#888'}"></div>${p.name} <span style="color:#888">HP:${p.hp || 20}</span></div>`;
+  }
+  listEl.innerHTML = html;
+}
+
+// Render other players as simple colored boxes
+function renderRemotePlayers() {
+  // Build mesh for all remote players and render
+  // For simplicity, we use a separate buffer per player
+  for (const [id, p] of mp.remotePlayers) {
+    if (!p.x) continue;
+    if (!p.meshData) {
+      p.meshData = buildPlayerBoxMesh(p.color || '#888');
+      p.glBuf = createGlBufferFor(p.meshData);
+    }
+    // Position the player
+    const mvp = mat4Mult(getCurrentProjView(), mat4Translate(p.x - 0.3, p.y, p.z - 0.3));
+    drawPlayerMesh(p.glBuf, p.meshData, mvp);
+    // Name label
+    drawPlayerName(p.name, p.x, p.y + 1.9, p.z);
+  }
+}
+
+// Get current proj*view matrix (computed once per frame in render)
+let _currentPV = null;
+function getCurrentProjView() {
+  return _currentPV || mat4Identity();
+}
+
+// Build a simple colored box mesh for a player (head + body)
+function buildPlayerBoxMesh(color) {
+  // Parse color to RGB
+  const c = color.replace('#', '');
+  const r = parseInt(c.substring(0, 2), 16) / 255;
+  const g = parseInt(c.substring(2, 4), 16) / 255;
+  const b = parseInt(c.substring(4, 6), 16) / 255;
+  // Create a simple shader program for solid color (cached)
+  // For simplicity, reuse main shader with white texture and tint via... no, simpler: a dedicated solid shader
+  // Actually, just use the same shader with white texture and modify... let's create a quick solid color shader
+  return { color: [r, g, b], vertices: makeBoxVerts(0.6, 1.7), w: 0.6, h: 1.7 };
+}
+
+function makeBoxVerts(w, h) {
+  const hw = w / 2;
+  // 6 faces, 4 vertices each (no indices, just triangle list)
+  const positions = [];
+  const normals = [];
+  // +X
+  positions.push(hw,0,0, hw,h,0, hw,0,hw, hw,h,hw);
+  normals.push(1,0,0, 1,0,0, 1,0,0, 1,0,0);
+  // -X
+  positions.push(-hw,0,hw, -hw,h,hw, -hw,0,0, -hw,h,0);
+  normals.push(-1,0,0, -1,0,0, -1,0,0, -1,0,0);
+  // +Y (top)
+  positions.push(-hw,h,hw, hw,h,hw, -hw,h,0, hw,h,0);
+  normals.push(0,1,0, 0,1,0, 0,1,0, 0,1,0);
+  // -Y (bottom)
+  positions.push(-hw,0,0, hw,0,0, -hw,0,hw, hw,0,hw);
+  normals.push(0,-1,0, 0,-1,0, 0,-1,0, 0,-1,0);
+  // +Z
+  positions.push(hw,0,hw, hw,h,hw, -hw,0,hw, -hw,h,hw);
+  normals.push(0,0,1, 0,0,1, 0,0,1, 0,0,1);
+  // -Z
+  positions.push(-hw,0,0, -hw,h,0, hw,0,0, hw,h,0);
+  normals.push(0,0,-1, 0,0,-1, 0,0,-1, 0,0,-1);
+  return { positions, normals };
+}
+
+// Create a single program for solid color (lazy)
+let _solidProg = null;
+function getSolidProg() {
+  if (_solidProg) return _solidProg;
+  const vsSrc = `
+    attribute vec3 aPos;
+    attribute vec3 aNormal;
+    uniform mat4 uMVP;
+    uniform mat4 uModel;
+    varying vec3 vNormal;
+    void main() {
+      vNormal = aNormal;
+      gl_Position = uMVP * uModel * vec4(aPos, 1.0);
+    }
+  `;
+  const fsSrc = `
+    precision mediump float;
+    uniform vec3 uColor;
+    uniform vec3 uSunDir;
+    varying vec3 vNormal;
+    void main() {
+      vec3 n = normalize(vNormal);
+      float diff = max(dot(n, uSunDir), 0.0);
+      float ambient = 0.5;
+      vec3 col = uColor * (ambient + 0.5 * diff);
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `;
+  const vs = compileShader(gl.VERTEX_SHADER, vsSrc);
+  const fs = compileShader(gl.FRAGMENT_SHADER, fsSrc);
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+  _solidProg = {
+    prog,
+    aPos: gl.getAttribLocation(prog, 'aPos'),
+    aNormal: gl.getAttribLocation(prog, 'aNormal'),
+    uMVP: gl.getUniformLocation(prog, 'uMVP'),
+    uModel: gl.getUniformLocation(prog, 'uModel'),
+    uColor: gl.getUniformLocation(prog, 'uColor'),
+    uSunDir: gl.getUniformLocation(prog, 'uSunDir'),
+  };
+  return _solidProg;
+}
+
+function createGlBufferFor(mesh) {
+  const buf = {
+    pos: gl.createBuffer(),
+    norm: gl.createBuffer(),
+    idx: gl.createBuffer(),
+    indexCount: mesh.vertices.positions.length / 3,
+  };
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf.pos);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.vertices.positions), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf.norm);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.vertices.normals), gl.STATIC_DRAW);
+  return buf;
+}
+
+function drawPlayerMesh(buf, mesh, mvp) {
+  if (!buf) return;
+  const sp = getSolidProg();
+  gl.useProgram(sp.prog);
+  gl.uniformMatrix4fv(sp.uMVP, false, mvp);
+  gl.uniformMatrix4fv(sp.uModel, false, mat4Identity());
+  gl.uniform3f(sp.uColor, mesh.color[0], mesh.color[1], mesh.color[2]);
+  const sun = getSunDir();
+  gl.uniform3f(sp.uSunDir, sun[0], sun[1], sun[2]);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf.pos);
+  gl.enableVertexAttribArray(sp.aPos);
+  gl.vertexAttribPointer(sp.aPos, 3, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf.norm);
+  gl.enableVertexAttribArray(sp.aNormal);
+  gl.vertexAttribPointer(sp.aNormal, 3, gl.FLOAT, false, 0, 0);
+  gl.drawArrays(gl.TRIANGLES, 0, buf.indexCount);
+  // Restore main program
+  gl.useProgram(prog);
+}
+
+// Draw a name label above the player (using canvas overlay)
+// This uses the 2D canvas as overlay after WebGL renders
+const _nameCanvas = document.createElement('canvas');
+const _nameCtx = _nameCanvas.getContext('2d');
+_nameCanvas.width = 256; _nameCanvas.height = 32;
+function drawPlayerName(name, wx, wy, wz) {
+  if (!wx) return;
+  // Project 3D to screen
+  const ex = player.x, ey = player.y + CFG.PLAYER_EYE, ez = player.z;
+  const cy = Math.cos(player.yaw), sy = Math.sin(player.yaw);
+  const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+  const fx = -sy*cp, fy = sp, fz = -cy*cp;
+  const flen = Math.sqrt(fx*fx + fy*fy + fz*fz);
+  const fnx = fx/flen, fny = fy/flen, fnz = fz/flen;
+  // View matrix
+  const view = mat4LookAt(ex, ey, ez, ex+fnx, ey+fny, ez+fnz, 0, 1, 0);
+  const proj = mat4Perspective(Math.PI/3, canvas.width/canvas.height, 0.1, 500);
+  const mvp = mat4Mult(proj, mat4Mult(view, mat4Translate(wx, wy, wz)));
+  // Manually apply MVP to (0,0,0)
+  const m = mvp;
+  // Transform world coords
+  const x = wx, y = wy, z = wz;
+  const cx2 = m[0]*x + m[4]*y + m[8]*z + m[12];
+  const cy2 = m[1]*x + m[5]*y + m[9]*z + m[13];
+  const cz2 = m[2]*x + m[6]*y + m[10]*z + m[14];
+  const cw = m[3]*x + m[7]*y + m[11]*z + m[15];
+  if (cw <= 0) return;
+  const ndcX = cx2 / cw, ndcY = cy2 / cw;
+  const sx = (ndcX + 1) * 0.5 * canvas.width;
+  const sy2 = (1 - ndcY) * 0.5 * canvas.height;
+  // Draw name on 2D overlay (we use HUD element)
+  // Simplest: add a div dynamically (expensive). Better: keep a small list
+  ensureNameLabel(name, sx, sy2);
+}
+
+function mat4LookAt(eyeX, eyeY, eyeZ, centerX, centerY, centerZ, upX, upY, upZ) {
+  const fx = centerX - eyeX, fy = centerY - eyeY, fz = centerZ - eyeZ;
+  const flen = Math.sqrt(fx*fx+fy*fy+fz*fz) || 1;
+  const fnx = fx/flen, fny = fy/flen, fnz = fz/flen;
+  let sx = fny*upZ - fnz*upY, sy = fnz*upX - fnx*upZ, sz = fnx*upY - fny*upX;
+  const slen = Math.sqrt(sx*sx+sy*sy+sz*sz) || 1;
+  sx /= slen; sy /= slen; sz /= slen;
+  const ux2 = sy*fnz - sz*fny, uy2 = sz*fnx - sx*fnz, uz2 = sx*fny - sy*fnx;
+  return new Float32Array([
+    sx, ux2, -fnx, 0,
+    sy, uy2, -fny, 0,
+    sz, uz2, -fnz, 0,
+    -(sx*eyeX + sy*eyeY + sz*eyeZ), -(ux2*eyeX + uy2*eyeY + uz2*eyeZ), (fnx*eyeX + fny*eyeY + fnz*eyeZ), 1
+  ]);
+}
+
+const nameLabels = new Map();
+function ensureNameLabel(name, x, y) {
+  let el = nameLabels.get(name);
+  if (!el) {
+    el = document.createElement('div');
+    el.style.cssText = 'position:absolute;color:#fff;background:rgba(0,0,0,.6);padding:2px 6px;border-radius:3px;font-size:11px;pointer-events:none;z-index:60;transform:translate(-50%,-100%);white-space:nowrap;border:1px solid rgba(255,255,255,.2)';
+    el.textContent = name;
+    document.body.appendChild(el);
+    nameLabels.set(name, el);
+  }
+  // Only show if close enough
+  if (y < 0 || y > canvas.height || x < 0 || x > canvas.width) {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = 'block';
+  el.style.left = x + 'px';
+  el.style.top = (y - 8) + 'px';
+}
+
+// Hook the render loop to draw remote players + names
+const _origRenderMP = render;
+render = function() {
+  // Compute current proj*view once for remote players
+  const ex = player.x, ey = player.y + CFG.PLAYER_EYE, ez = player.z;
+  const cy = Math.cos(player.yaw), sy = Math.sin(player.yaw);
+  const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+  const fx = -sy*cp, fy = sp, fz = -cy*cp;
+  const aspect = canvas.width / canvas.height;
+  const proj = mat4Perspective(Math.PI/3, aspect, 0.1, 500);
+  const view = mat4LookAt(ex, ey, ez, ex+fx, ey+fy, ez+fz, 0, 1, 0);
+  _currentPV = mat4Mult(proj, view);
+  // Main render
+  _origRenderMP();
+  // Draw remote players
+  if (mp.connected && mp.roomCode) {
+    // Update name labels (2D)
+    for (const [, p] of mp.remotePlayers) {
+      if (p.x != null && p.lastUpdate && Date.now() - p.lastUpdate < 30000) {
+        drawPlayerName(p.name, p.x, p.y + 1.9, p.z);
+      } else {
+        // hide label
+        const el = nameLabels.get(p.name);
+        if (el) el.style.display = 'none';
+      }
+    }
+    // Draw 3D player boxes
+    gl.useProgram(prog); // ensure main program is bound
+    // Disable depth for transparent? no, we want depth
+    for (const [, p] of mp.remotePlayers) {
+      if (p.x != null && p.meshData && p.glBuf && p.lastUpdate && Date.now() - p.lastUpdate < 30000) {
+        const mvp = mat4Mult(_currentPV, mat4Translate(p.x - 0.3, p.y, p.z - 0.3));
+        drawPlayerMesh(p.glBuf, p.meshData, mvp);
+      }
+    }
+  }
+  // Send position update
+  if (mp.connected && mp.roomCode) sendMoveThrottled();
+};
+
+// CHAT
+function addChat(name, msg, color) {
+  chatLog.push({ name, msg, color, t: Date.now() });
+  if (chatLog.length > CHAT_MAX) chatLog.shift();
+  const log = document.getElementById('chat-log');
+  if (!log) return;
+  const div = document.createElement('div');
+  div.className = 'chat-msg';
+  div.innerHTML = `<span class="chat-name" style="color:${color || '#4a9eff'}">${escapeHTML(name)}:</span> ${escapeHTML(msg)}`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function sendChat() {
+  const input = document.getElementById('chat-input');
+  if (!input || !input.value.trim()) return;
+  const msg = input.value.trim();
+  input.value = '';
+  sendMP({ type: 'chat', name: mp.myName, msg, color: mp.myColor });
+  addChat(mp.myName, msg, mp.myColor);
+}
+
+// UI: Chat input
+document.getElementById('chat-input')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    sendChat();
+    e.preventDefault();
+  }
+});
+
+document.getElementById('chat-toggle')?.addEventListener('click', () => {
+  const chat = document.getElementById('mp-chat');
+  chat.classList.toggle('show');
+  if (chat.classList.contains('show')) {
+    setTimeout(() => document.getElementById('chat-input').focus(), 100);
+  }
+});
+
+// T key to toggle chat
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyT' && mouseLocked && mp.connected) {
+    e.preventDefault();
+    document.getElementById('mp-chat').classList.toggle('show');
+    if (document.getElementById('mp-chat').classList.contains('show')) {
+      setTimeout(() => document.getElementById('chat-input').focus(), 100);
+    }
+  }
+});
+
+// UI: MP buttons
+document.getElementById('btn-mp-host')?.addEventListener('click', () => {
+  showMPPanel('host');
+});
+document.getElementById('btn-mp-join')?.addEventListener('click', () => {
+  showMPPanel('join');
+});
+document.getElementById('btn-mp-back')?.addEventListener('click', hideMPPanel);
+document.getElementById('btn-mp-action')?.addEventListener('click', () => {
+  const action = document.getElementById('btn-mp-action');
+  const mode = action.dataset.mode;
+  if (mode === 'host') {
+    // Connect, then create
+    if (!mp.connected) connectMP();
+    setTimeout(() => {
+      if (!mp.connected) {
+        toast('❌ เชื่อมต่อเซิร์ฟไม่ได้');
+        return;
+      }
+      // Show code immediately
+      const code = Math.random().toString(36).substring(2, 6).toUpperCase();
+      // Actually let server generate
+      sendMP({ type: 'create_room', name: mp.myName, color: mp.myColor });
+      // Will be filled by room_created
+      const codeEl = document.getElementById('mp-code');
+      const info = document.getElementById('mp-info');
+      codeEl.textContent = '....';
+      codeEl.style.display = 'block';
+      info.textContent = 'กำลังสร้างห้อง...';
+    }, 200);
+  } else {
+    const input = document.getElementById('mp-code-input');
+    const code = input.value.toUpperCase().trim();
+    if (code.length !== 4) {
+      toast('❌ รหัส 4 ตัว');
+      return;
+    }
+    if (!mp.connected) connectMP();
+    setTimeout(() => {
+      if (!mp.connected) { toast('❌ เชื่อมต่อเซิร์ฟไม่ได้'); return; }
+      sendMP({ type: 'join_room', code, name: mp.myName, color: mp.myColor });
+      const info = document.getElementById('mp-info');
+      info.textContent = 'กำลังเข้าห้อง ' + code + '...';
+    }, 200);
+  }
+});
+
+// Display code once received
+const _origHandle = handleMPMessage;
+// Override the join handler to show code (host)
+function updateRoomCodeDisplay(code) {
+  const codeEl = document.getElementById('mp-code');
+  const info = document.getElementById('mp-info');
+  const roomInfo = document.getElementById('mp-room-info');
+  codeEl.textContent = code;
+  codeEl.style.display = 'block';
+  info.textContent = 'แชร์รหัสนี้ให้เพื่อน:';
+  roomInfo.textContent = 'ห้องเปิดแล้ว — รอเพื่อนเข้าร่วม...';
+  roomInfo.style.display = 'block';
+  roomInfo.style.color = '#7cda24';
+}
+
+// Patch the handle function to also update the panel display
+const _oldHandleMPMessage = handleMPMessage;
+handleMPMessage = function(msg) {
+  _oldHandleMPMessage(msg);
+  if (msg.type === 'room_created') {
+    updateRoomCodeDisplay(msg.code);
+  }
+};
+
+// Hook break/place to broadcast block changes
+const _origBreakMP = breakBlock;
+breakBlock = function() {
+  const r = raycast();
+  if (!r) return;
+  const now = performance.now();
+  if (now - lastBreakTime < 200) return;
+  lastBreakTime = now;
+  const b = r.block;
+  if (b === B.BEDROCK) { toast('⛏ หินฐานทุบไม่ได้'); return; }
+  setBlock(r.x, r.y, r.z, B.AIR);
+  meshRebuildNeeded = true;
+  dropBlock(b);
+  stats.blocksBroken[b] = (stats.blocksBroken[b] || 0) + 1;
+  playSound(SOUND_BLOCKS[b] || 'break');
+  // Broadcast
+  if (mp.connected && mp.roomCode) {
+    sendMP({ type: 'block', action: 'break', x: r.x, y: r.y, z: r.z, block: 0 });
+  }
+  // Mob aggro
+  for (const m of mobs) {
+    const dx = m.x - r.x, dz = m.z - r.z;
+    if (Math.sqrt(dx*dx + dz*dz) < 8 && MOB_TYPES[m.type].hostile) m.target = player;
+  }
+  toast('⛏ ทุบ ' + BLOCK_NAMES[b]);
+};
+
+const _origPlaceMP = placeBlock;
+placeBlock = function() {
+  const r = raycast();
+  if (!r) return;
+  const nx = r.normal[0], ny = r.normal[1], nz = r.normal[2];
+  const px = Math.floor(player.x), py = Math.floor(player.y), pz = Math.floor(player.z);
+  const px2 = Math.floor(player.x + 0.3), py2 = Math.floor(player.y + 1.5), pz2 = Math.floor(player.z + 0.3);
+  if ((nx === px && (ny === py || ny === py2) && nz === pz) ||
+      (nx === px2 && (ny === py || ny === py2) && nz === pz2)) {
+    toast('❌ วางตรงนี้ไม่ได้');
+    return;
+  }
+  const blockId = HOTBAR[selectedSlot];
+  setBlock(nx, ny, nz, blockId);
+  meshRebuildNeeded = true;
+  stats.blocksPlaced++;
+  if (blockId === B.DOOR) stats.doorsPlaced++;
+  playSound(PLACE_SOUND[blockId] || 'place');
+  if (stats.blocksPlaced >= 1) awardAchievement('first_step');
+  if (stats.blocksPlaced >= 50) awardAchievement('builder');
+  // Broadcast
+  if (mp.connected && mp.roomCode) {
+    sendMP({ type: 'block', action: 'place', x: nx, y: ny, z: nz, block: blockId });
+  }
+  toast('🧱 วาง ' + BLOCK_NAMES[blockId]);
+};
+
+// Cleanup on disconnect
+window.addEventListener('beforeunload', () => {
+  if (mp.ws) mp.ws.close();
+});
+
+// Connect on load (try, but don't block offline play)
+connectMP();
+
+// Generate a random color for the player
+mp.myColor = '#' + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
+mp.myName = 'Player' + Math.floor(Math.random() * 1000);
+
+// ======================================================================
+// MOD MANAGER UI
+// ======================================================================
+const SAMPLE_RUBY_MOD = {
+  id: 'ruby_mod',
+  name: 'Ruby Mod (ตัวอย่าง)',
+  version: '1.0.0',
+  author: 'MiniCraft',
+  items: [
+    { id: 'ruby', name: 'ทับทิม', color: '#c83030', shape: 'gem' },
+    { id: 'ruby_pickaxe', name: 'พลั่วทับทิม', color: '#c83030', shape: 'tool_pickaxe' },
+    { id: 'ruby_sword', name: 'ดาบทับทิม', color: '#c83030', shape: 'tool_sword' },
+  ],
+  recipes: [
+    { id: 'ruby_pickaxe', name: 'พลั่วทับทิม', category: 'tools', result: { name: 'ruby_pickaxe', count: 1 }, ingredients: [{ name: 'ruby', count: 3 }, { name: 'stick', count: 2 }] },
+    { id: 'ruby_sword', name: 'ดาบทับทิม', category: 'tools', result: { name: 'ruby_sword', count: 1 }, ingredients: [{ name: 'ruby', count: 2 }, { name: 'stick', count: 1 }] },
+  ],
+};
+
+function openModsModal() {
+  document.getElementById('mods-modal').classList.add('show');
+  updateModsUI();
+  unlockPointer();
+}
+function closeModsModal() {
+  document.getElementById('mods-modal').classList.remove('show');
+  lockPointer();
+}
+function updateModsUI() {
+  // Update mod count badge
+  const badge = document.getElementById('mod-count');
+  if (badge) badge.textContent = `(${ModManager.mods.length})`;
+  // Stats
+  const stats = ModManager.stats();
+  document.getElementById('mods-stats').innerHTML =
+    `<b>📦 ${stats.modCount} mods</b> • 🍳 ${stats.recipeCount} recipes • 🧱 ${stats.itemCount} items<br><span style="color:#888;font-size:11px">Mods: ${ModManager.mods.map(m => m.name).join(', ')}</span>`;
+  // List
+  let html = '';
+  for (const m of ModManager.mods) {
+    const recipeCount = (m.recipes || []).length;
+    const itemCount = (m.items || []).length;
+    html += `<div class="mod-row">
+      <div class="mod-head">
+        <div>
+          <div class="mod-name">${escapeHTML(m.name)}${m.builtin ? '<span class="builtin-tag">BUILT-IN</span>' : ''}</div>
+          <div class="mod-meta">v${escapeHTML(m.version || '1.0')} • by ${escapeHTML(m.author || '?')} • ${recipeCount} recipes • ${itemCount} items</div>
+        </div>
+        <div class="mod-actions">
+          ${!m.builtin ? `
+            <button class="mod-export" data-id="${escapeHTML(m.id)}">📤</button>
+            <button class="mod-remove" data-id="${escapeHTML(m.id)}">🗑</button>
+          ` : '<span style="color:#7cda24;font-size:11px">⭐ required</span>'}
+        </div>
+      </div>
+    </div>`;
+  }
+  document.getElementById('mods-list').innerHTML = html;
+  // Hook actions
+  document.querySelectorAll('.mod-export').forEach(b => {
+    b.addEventListener('click', () => exportMod(b.dataset.id));
+  });
+  document.querySelectorAll('.mod-remove').forEach(b => {
+    b.addEventListener('click', () => {
+      if (confirm('ลบ mod ' + b.dataset.id + ' ?')) {
+        ModManager.remove(b.dataset.id);
+        updateModsUI();
+        buildCraftUI();
+        updateInventoryUI();
+        toast('🗑 ลบ mod แล้ว');
+      }
+    });
+  });
+}
+
+function installModFromJson(jsonStr) {
+  const result = ModManager.installFromJson(jsonStr);
+  if (result.ok) {
+    toast('✅ ติดตั้ง mod "' + result.mod.name + '" แล้ว');
+    updateModsUI();
+    buildCraftUI();
+    return true;
+  } else {
+    toast('❌ ' + result.error);
+    return false;
+  }
+}
+
+async function installModFromUrl(url) {
+  toast('⏳ กำลังโหลด...');
+  const result = await ModManager.installFromUrl(url);
+  if (result.ok) {
+    toast('✅ ติดตั้ง mod "' + result.mod.name + '" แล้ว');
+    updateModsUI();
+    buildCraftUI();
+  } else {
+    toast('❌ ' + result.error);
+  }
+}
+
+function exportMod(modId) {
+  const json = ModManager.export(modId);
+  if (!json) return;
+  // Copy to clipboard
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(json).then(() => {
+      toast('📋 คัดลอก mod ไปยัง clipboard แล้ว');
+    }).catch(() => {
+      prompt('คัดลอก mod นี้ (Ctrl+A, Ctrl+C):', json);
+    });
+  } else {
+    prompt('คัดลอก mod นี้ (Ctrl+A, Ctrl+C):', json);
+  }
+}
+
+// Hook buttons
+document.getElementById('btn-mods')?.addEventListener('click', openModsModal);
+document.getElementById('mods-close')?.addEventListener('click', closeModsModal);
+document.getElementById('mods-modal')?.addEventListener('click', e => {
+  if (e.target.id === 'mods-modal') closeModsModal();
+});
+document.getElementById('btn-install-mod')?.addEventListener('click', () => {
+  const json = document.getElementById('mod-json-input').value.trim();
+  if (!json) { toast('⚠ วาง JSON mod'); return; }
+  if (installModFromJson(json)) {
+    document.getElementById('mod-json-input').value = '';
+  }
+});
+document.getElementById('btn-install-mod-url')?.addEventListener('click', () => {
+  const url = document.getElementById('mod-url-input').value.trim();
+  if (!url) { toast('⚠ ใส่ URL'); return; }
+  installModFromUrl(url);
+});
+document.getElementById('btn-load-sample-mod')?.addEventListener('click', () => {
+  document.getElementById('mod-name-input').value = 'Ruby Mod (ตัวอย่าง)';
+  document.getElementById('mod-json-input').value = JSON.stringify(SAMPLE_RUBY_MOD, null, 2);
+  toast('📝 โหลดตัวอย่าง — กดติดตั้งเพื่อลอง');
+});
+
+// Update mod count badge
+updateModsUI();
+
+</script>
+</body>
+</html>
+
