@@ -156,6 +156,43 @@
   #mods-list .mod-row .mod-remove{background:#ef4444}
   #mods-list .mod-row .mod-remove:hover{background:#ff5555}
   #mods-list .builtin-tag{background:rgba(124,218,36,.2);color:#7cda24;padding:1px 6px;border-radius:3px;font-size:9px;margin-left:6px}
+
+  /* Code Editor */
+  #code-modal{position:absolute;inset:0;background:rgba(0,0,0,.92);z-index:130;display:none;color:#fff;font-family:'Inter',sans-serif}
+  #code-modal.show{display:flex;flex-direction:column}
+  #code-modal .code-top{background:linear-gradient(90deg,#1a1a2e,#16213e);padding:12px 20px;display:flex;align-items:center;gap:10px;border-bottom:2px solid #f59e0b;flex-shrink:0}
+  #code-modal .code-top h2{margin:0;font-size:18px;color:#f59e0b;flex:1}
+  #code-modal .code-top button{background:#3a3a4a;color:#fff;border:0;padding:8px 16px;font-size:13px;font-weight:700;border-radius:4px;cursor:pointer}
+  #code-modal .code-top button:hover{background:#4a4a5a}
+  #code-modal .code-top .code-run{background:#7cda24;color:#000}
+  #code-modal .code-top .code-stop{background:#ef4444;color:#fff}
+  #code-modal .code-top .code-sample{background:#4a9eff;color:#000}
+  #code-modal .code-body{flex:1;display:grid;grid-template-columns:220px 1fr;overflow:hidden}
+  #code-blocks-list{background:rgba(20,20,30,.8);border-right:1px solid rgba(255,255,255,.1);overflow-y:auto;padding:8px}
+  .code-cat{margin-bottom:12px}
+  .code-cat-name{font-size:11px;font-weight:700;color:#aaa;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:2px}
+  .code-pal-block{margin-bottom:3px;cursor:pointer}
+  .code-pal-block .code-block{font-size:11px;padding:4px 8px}
+  .code-workspace-wrap{overflow-y:auto;padding:14px;background:rgba(0,0,0,.3)}
+  #code-workspace{min-height:100%}
+  #code-scripts{display:flex;flex-direction:column;gap:10px}
+  .code-script{background:rgba(40,40,60,.5);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:8px;cursor:pointer}
+  .code-script.active{border-color:#f59e0b;background:rgba(245,158,11,.1)}
+  .code-script-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+  .code-script-del{background:#ef4444;color:#fff;border:0;width:20px;height:20px;border-radius:3px;cursor:pointer;font-size:12px}
+  .code-block-row{margin-bottom:2px;display:flex;flex-direction:column}
+  .code-block{--bc:#4c97ff;background:var(--bc);color:#fff;padding:6px 10px;border-radius:5px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:24px;box-shadow:0 2px 4px rgba(0,0,0,.3)}
+  .code-block-label{white-space:nowrap}
+  .code-block .code-param{background:rgba(255,255,255,.95);color:#222;border:1px solid rgba(0,0,0,.2);border-radius:3px;padding:2px 6px;font-size:11px;font-weight:500;min-width:50px;max-width:120px}
+  .code-block .code-param.num{width:60px}
+  .code-block .code-param.str{flex:1;min-width:80px}
+  .code-block .code-param.sel{cursor:pointer}
+  .code-block-del{background:rgba(0,0,0,.4);color:#fff;border:0;width:18px;height:18px;border-radius:3px;cursor:pointer;font-size:10px;margin-left:auto}
+  .code-block-children{border-left:3px solid rgba(255,255,255,.2);margin-left:12px;padding:4px 0 4px 8px;display:flex;flex-direction:column;gap:2px}
+  .code-block-empty{color:#666;font-size:11px;font-style:italic;padding:4px}
+  .code-add-script{margin-top:8px;padding:8px;background:rgba(255,255,255,.05);border-radius:4px;display:flex;flex-direction:column;gap:4px}
+  .code-add-hat{background:#3a3a4a;color:#fff;border:0;padding:6px 10px;font-size:12px;font-weight:600;border-radius:4px;cursor:pointer;text-align:left}
+  .code-add-hat:hover{background:#4a4a5a}
   .craft-panel{background:rgba(20,20,30,.95);border:2px solid var(--accent2);border-radius:10px;padding:20px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto}
   .craft-panel h2{margin:0 0 10px;color:var(--accent2)}
   .craft-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
@@ -244,6 +281,7 @@
     <button id="btn-mp-host" style="background:#4a9eff;box-shadow:0 4px 0 #2a5e9f">🌐 สร้างห้องออนไลน์</button>
     <button id="btn-mp-join" style="background:#7cda24;box-shadow:0 4px 0 #4a8a14">🔑 เข้าห้อง (มีรหัส)</button>
     <button id="btn-mods" style="background:#a855f7;box-shadow:0 4px 0 #6b21a8">📦 Mods <span id="mod-count" style="font-size:10px;opacity:.8">(1)</span></button>
+    <button id="btn-code" style="background:#f59e0b;box-shadow:0 4px 0 #b46e00">🧩 Code Editor</button>
   </div>
   <div id="mp-panel">
     <h3 id="mp-panel-title">🌐 สร้างห้องออนไลน์</h3>
@@ -318,6 +356,25 @@
 # categories: basic, tools, building, food, other
 # block: 'block:N' where N is block ID (0-29)</pre>
     </details>
+  </div>
+</div>
+
+<!-- Code Editor modal (Visual Block Programming) -->
+<div id="code-modal">
+  <div class="code-top">
+    <h2>🧩 Code Editor</h2>
+    <button class="code-sample" id="code-load-sample">📝 โหลดตัวอย่าง</button>
+    <button class="code-run" id="code-run">▶ Run</button>
+    <button class="code-stop" id="code-stop">⏹ Stop</button>
+    <button id="code-close">✕ ปิด</button>
+  </div>
+  <div class="code-body">
+    <div id="code-blocks-list"></div>
+    <div class="code-workspace-wrap">
+      <div id="code-workspace">
+        <div id="code-scripts"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -3796,6 +3853,7 @@ render = function() {
   _origRender2();
   renderMobs();
   drawMinimap();
+  renderRemotePlayers();
 };
 
 function renderMobs() {
@@ -4214,6 +4272,25 @@ function renderRemotePlayers() {
     drawPlayerMesh(p.glBuf, p.meshData, mvp);
     // Name label
     drawPlayerName(p.name, p.x, p.y + 1.9, p.z);
+  }
+  // Render agent (code editor bot) if visible
+  renderAgent();
+}
+
+let _agentMeshData = null;
+let _agentGlBuf = null;
+function renderAgent() {
+  if (!agent.visible) return;
+  if (!_agentMeshData) {
+    _agentMeshData = buildPlayerBoxMesh('#ff8800');
+    _agentGlBuf = createGlBufferFor(_agentMeshData);
+  }
+  const mvp = mat4Mult(getCurrentProjView(), mat4Translate(agent.x - 0.3, agent.y, agent.z - 0.3));
+  drawPlayerMesh(_agentGlBuf, _agentMeshData, mvp);
+  drawPlayerName('🤖 Bot', agent.x, agent.y + 1.9, agent.z);
+  // Floating "say" text
+  if (agent.sayUntil && performance.now() < agent.sayUntil) {
+    drawPlayerName('💬 ' + agent.sayText, agent.x, agent.y + 2.4, agent.z);
   }
 }
 
@@ -4781,6 +4858,736 @@ document.getElementById('btn-load-sample-mod')?.addEventListener('click', () => 
 
 // Update mod count badge
 updateModsUI();
+
+// ======================================================================
+// VISUAL BLOCK PROGRAMMING (Scratch-like)
+// ======================================================================
+// Block = { id, type, params: {...}, next: Block | null, children: [Block] | null }
+// Hat block: top of a script (no parent)
+// Stack block: regular block
+// C block: control block with children (repeat, if)
+
+// Block definitions (data-driven)
+const BLOCK_DEFS = {
+  // Hat blocks (event handlers)
+  on_start: { kind: 'hat', category: 'events', label: '🏁 เมื่อเริ่ม', params: [] },
+  on_chat: { kind: 'hat', category: 'events', label: '💬 เมื่อพูด', params: [{ name: 'command', type: 'string', default: 'go' }] },
+  on_key: { kind: 'hat', category: 'events', label: '⌨ เมื่อกด', params: [{ name: 'key', type: 'select', options: ['w','a','s','d','space'], default: 'w' }] },
+
+  // Motion
+  walk: { kind: 'stack', category: 'motion', label: '🚶 เดิน', params: [
+    { name: 'direction', type: 'select', options: ['forward','back','left','right'], default: 'forward' },
+    { name: 'count', type: 'number', default: 3, min: 1, max: 20 },
+  ]},
+  turn: { kind: 'stack', category: 'motion', label: '🔄 หมุน', params: [
+    { name: 'degrees', type: 'number', default: 90, min: -360, max: 360 },
+  ]},
+  jump: { kind: 'stack', category: 'motion', label: '🦘 กระโดด' },
+  fly_up: { kind: 'stack', category: 'motion', label: '✈ บินขึ้น', params: [{ name: 'height', type: 'number', default: 3, min: 1, max: 20 }]},
+  fly_down: { kind: 'stack', category: 'motion', label: '⬇ บินลง', params: [{ name: 'height', type: 'number', default: 3, min: 1, max: 20 }]},
+  teleport: { kind: 'stack', category: 'motion', label: '🌀 วาร์ป', params: [{ name: 'distance', type: 'number', default: 10, min: 1, max: 50 }]},
+
+  // Action
+  break_block: { kind: 'stack', category: 'action', label: '⛏ ทุบ' },
+  place: { kind: 'stack', category: 'action', label: '🧱 วาง', params: [
+    { name: 'block', type: 'select_block', default: 1 /* GRASS */ },
+  ]},
+  say: { kind: 'stack', category: 'action', label: '💬 พูด', params: [{ name: 'text', type: 'string', default: 'Hello!' }]},
+  spawn: { kind: 'stack', category: 'action', label: '🌀 เกิดที่', params: [
+    { name: 'x', type: 'number', default: 0, min: -50, max: 50 },
+    { name: 'y', type: 'number', default: 30, min: 0, max: 60 },
+    { name: 'z', type: 'number', default: 0, min: -50, max: 50 },
+  ]},
+
+  // Control
+  repeat: { kind: 'c', category: 'control', label: '🔁 วนซ้ำ', params: [{ name: 'count', type: 'number', default: 5, min: 1, max: 100 }], hasChildren: true },
+  if_block: { kind: 'c', category: 'control', label: '❓ ถ้า', params: [
+    { name: 'condition', type: 'select', options: ['block_ahead','ground_below','is_day','is_night'], default: 'block_ahead' },
+  ], hasChildren: true },
+  wait: { kind: 'stack', category: 'control', label: '⏱ รอ', params: [{ name: 'seconds', type: 'number', default: 1, min: 0.1, max: 10 }]},
+
+  // Variables
+  set_var: { kind: 'stack', category: 'vars', label: '💜 ตั้งค่า', params: [
+    { name: 'name', type: 'string', default: 'score' },
+    { name: 'value', type: 'number', default: 0 },
+  ]},
+  change_var: { kind: 'stack', category: 'vars', label: '💜 เปลี่ยน', params: [
+    { name: 'name', type: 'string', default: 'score' },
+    { name: 'delta', type: 'number', default: 1 },
+  ]},
+};
+
+const BLOCK_CATEGORIES = {
+  events:  { name: '📢 เหตุการณ์',   color: '#ffbf00' },
+  motion:  { name: '🚶 เคลื่อนไหว',  color: '#4c97ff' },
+  action:  { name: '🎬 แอคชั่น',     color: '#e64c4c' },
+  control: { name: '⚙ ควบคุม',       color: '#fbc100' },
+  vars:    { name: '💜 ตัวแปร',      color: '#cf63cf' },
+};
+
+// Agent (bot) - separate entity that runs scripts
+class Agent {
+  constructor() {
+    this.x = 0; this.y = 30; this.z = 0;
+    this.yaw = 0;
+    this.pitch = 0;
+    this.active = true;
+    this.visible = false;
+    this.name = '🤖 Bot';
+  }
+  
+  // Position helpers
+  getBlockPos() {
+    return [Math.floor(this.x), Math.floor(this.y), Math.floor(this.z)];
+  }
+  getForwardPos() {
+    const rad = this.yaw * Math.PI / 180;
+    return [Math.floor(this.x + Math.sin(rad)), Math.floor(this.y), Math.floor(this.z + Math.cos(rad))];
+  }
+  
+  // Movement (smooth tween over 200ms)
+  async moveTo(nx, ny, nz, duration = 200) {
+    const sx = this.x, sy = this.y, sz = this.z;
+    const start = performance.now();
+    return new Promise(resolve => {
+      const step = () => {
+        if (!this.active) return resolve();
+        const t = Math.min(1, (performance.now() - start) / duration);
+        this.x = sx + (nx - sx) * t;
+        this.y = sy + (ny - sy) * t;
+        this.z = sz + (nz - sz) * t;
+        if (t < 1) requestAnimationFrame(step);
+        else resolve();
+      };
+      step();
+    });
+  }
+  
+  async walk(direction, count) {
+    const rad = this.yaw * Math.PI / 180;
+    let dx = 0, dz = 0;
+    switch (direction) {
+      case 'forward': dx = Math.sin(rad); dz = Math.cos(rad); break;
+      case 'back':    dx = -Math.sin(rad); dz = -Math.cos(rad); break;
+      case 'left':    dx = Math.cos(rad); dz = -Math.sin(rad); break;
+      case 'right':   dx = -Math.cos(rad); dz = Math.sin(rad); break;
+    }
+    for (let i = 0; i < count; i++) {
+      const nx = this.x + dx, nz = this.z + dz;
+      // check block ahead
+      const bx = Math.floor(nx), by = Math.floor(this.y), bz = Math.floor(nz);
+      if (getBlock(bx, by, bz) !== B.AIR) {
+        // try to step up if there's a block in front
+        if (getBlock(bx, by + 1, bz) === B.AIR) {
+          await this.moveTo(nx, this.y + 1, nz, 200);
+        } else {
+          break; // blocked
+        }
+      } else {
+        await this.moveTo(nx, this.y, nz, 200);
+      }
+      await sleep(20);
+    }
+  }
+  
+  async jump() {
+    await this.moveTo(this.x, this.y + 1.2, this.z, 150);
+    await sleep(50);
+    await this.moveTo(this.x, this.y, this.z, 150);
+  }
+  
+  async flyUp(h) {
+    await this.moveTo(this.x, this.y + h, this.z, 300);
+  }
+  
+  async flyDown(h) {
+    await this.moveTo(this.x, this.y - h, this.z, 300);
+  }
+  
+  async teleport(d) {
+    const rad = this.yaw * Math.PI / 180;
+    await this.moveTo(this.x + Math.sin(rad) * d, this.y, this.z + Math.cos(rad) * d, 100);
+  }
+  
+  async turn(degrees) {
+    const start = this.yaw;
+    const target = start + degrees;
+    const dur = 200;
+    const startT = performance.now();
+    return new Promise(resolve => {
+      const step = () => {
+        if (!this.active) return resolve();
+        const t = Math.min(1, (performance.now() - startT) / dur);
+        this.yaw = start + (target - start) * t;
+        if (t < 1) requestAnimationFrame(step);
+        else resolve();
+      };
+      step();
+    });
+  }
+  
+  async breakFront() {
+    const [bx, by, bz] = this.getForwardPos();
+    if (by < 0 || by >= H) return;
+    const blk = getBlock(bx, by, bz);
+    if (blk === B.AIR) return;
+    setBlock(bx, by, bz, B.AIR);
+    meshRebuildNeeded = true;
+    playSound('break');
+    addParticles(bx + 0.5, by + 0.5, bz + 0.5, BLOCK_COLORS[blk] || '#fff', 8);
+  }
+  
+  async placeFront(blockId) {
+    const [bx, by, bz] = this.getForwardPos();
+    if (by < 0 || by >= H) return;
+    if (getBlock(bx, by, bz) !== B.AIR) return;
+    setBlock(bx, by, bz, blockId);
+    meshRebuildNeeded = true;
+    playSound('place');
+  }
+  
+  async say(text) {
+    // Float text above agent for 2 seconds
+    this.sayText = text;
+    this.sayUntil = performance.now() + 2000;
+    toast('🤖 ' + text);
+  }
+  
+  async spawn(x, y, z) {
+    await this.moveTo(x, y, z, 100);
+  }
+  
+  // Conditions for if-block
+  checkCondition(cond) {
+    switch (cond) {
+      case 'block_ahead': {
+        const [bx, by, bz] = this.getForwardPos();
+        return getBlock(bx, by, bz) !== B.AIR;
+      }
+      case 'ground_below': {
+        const [bx, by, bz] = this.getBlockPos();
+        return getBlock(bx, by - 1, bz) !== B.AIR;
+      }
+      case 'is_day':   return gameTime < 12000;
+      case 'is_night': return gameTime >= 12000;
+      default: return false;
+    }
+  }
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Executor - runs block trees
+class Executor {
+  constructor(agent) {
+    this.agent = agent;
+    this.vars = {};
+    this.running = true; // start running by default
+    this.handles = new Map(); // hat block id -> running script
+  }
+  
+  async run(scripts) {
+    this.running = true;
+    this.agent.active = true;
+    for (const s of scripts) {
+      this.execBlock(s);
+    }
+  }
+  
+  stop() {
+    this.running = false;
+    this.agent.active = false;
+    this.handles.clear();
+  }
+  
+  async execBlock(block) {
+    if (!block || !this.running) return;
+    const def = BLOCK_DEFS[block.type];
+    if (!def) return;
+    try {
+      switch (block.type) {
+        case 'on_start':
+          await this.execBlock(block.next);
+          break;
+        case 'on_chat':
+          // attach to chat handler (registered separately)
+          break;
+        case 'on_key':
+          // attach to key handler
+          break;
+        case 'walk':
+          await this.agent.walk(block.params.direction, block.params.count);
+          await this.execBlock(block.next);
+          break;
+        case 'turn':
+          await this.agent.turn(block.params.degrees);
+          await this.execBlock(block.next);
+          break;
+        case 'jump':
+          await this.agent.jump();
+          await this.execBlock(block.next);
+          break;
+        case 'fly_up':
+          await this.agent.flyUp(block.params.height);
+          await this.execBlock(block.next);
+          break;
+        case 'fly_down':
+          await this.agent.flyDown(block.params.height);
+          await this.execBlock(block.next);
+          break;
+        case 'teleport':
+          await this.agent.teleport(block.params.distance);
+          await this.execBlock(block.next);
+          break;
+        case 'break_block':
+          await this.agent.breakFront();
+          await this.execBlock(block.next);
+          break;
+        case 'place':
+          await this.agent.placeFront(block.params.block);
+          await this.execBlock(block.next);
+          break;
+        case 'say':
+          await this.agent.say(block.params.text);
+          await this.execBlock(block.next);
+          break;
+        case 'spawn':
+          await this.agent.spawn(block.params.x, block.params.y, block.params.z);
+          await this.execBlock(block.next);
+          break;
+        case 'repeat': {
+          for (let i = 0; i < block.params.count && this.running; i++) {
+            for (const child of (block.children || [])) {
+              await this.execBlock(child);
+              if (!this.running) return;
+            }
+          }
+          await this.execBlock(block.next);
+          break;
+        }
+        case 'if_block': {
+          if (this.agent.checkCondition(block.params.condition)) {
+            for (const child of (block.children || [])) {
+              await this.execBlock(child);
+              if (!this.running) return;
+            }
+          }
+          await this.execBlock(block.next);
+          break;
+        }
+        case 'wait':
+          await sleep(block.params.seconds * 1000);
+          await this.execBlock(block.next);
+          break;
+        case 'set_var':
+          this.vars[block.params.name] = block.params.value;
+          await this.execBlock(block.next);
+          break;
+        case 'change_var':
+          this.vars[block.params.name] = (this.vars[block.params.name] || 0) + block.params.delta;
+          await this.execBlock(block.next);
+          break;
+      }
+    } catch (e) {
+      console.error('Block exec error:', block.type, e);
+    }
+  }
+  
+  // Trigger a hat block (e.g. on_chat with 'go')
+  async trigger(hatType, params = {}) {
+    for (const script of this.scripts || []) {
+      if (script.type !== hatType) continue;
+      if (hatType === 'on_chat' && script.params.command !== params.command) continue;
+      if (hatType === 'on_key' && script.params.key !== params.key) continue;
+      this.execBlock(script);
+    }
+  }
+}
+
+// Global agent
+const agent = new Agent();
+let executor = null;
+let savedScripts = []; // array of hat block trees
+let scriptName = 'My Program';
+
+const CODE_STORAGE_KEY = 'minicraft_code_v1';
+
+function loadScripts() {
+  try {
+    const raw = localStorage.getItem(CODE_STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      savedScripts = data.scripts || [];
+      scriptName = data.name || 'My Program';
+    }
+  } catch(e) {}
+}
+
+function saveScripts() {
+  try {
+    localStorage.setItem(CODE_STORAGE_KEY, JSON.stringify({ name: scriptName, scripts: savedScripts }));
+  } catch(e) {}
+}
+
+loadScripts();
+
+// Code Editor UI
+function openCodeEditor() {
+  document.getElementById('code-modal').classList.add('show');
+  renderCodeEditor();
+  unlockPointer();
+}
+function closeCodeEditor() {
+  document.getElementById('code-modal').classList.remove('show');
+  if (executor) executor.stop();
+  agent.visible = false;
+  lockPointer();
+}
+
+let currentScript = null; // currently selected script (hat block)
+
+function renderCodeEditor() {
+  const list = document.getElementById('code-blocks-list');
+  const workspace = document.getElementById('code-workspace');
+  if (!list || !workspace) return;
+  // Render block palette
+  let html = '';
+  for (const [catId, cat] of Object.entries(BLOCK_CATEGORIES)) {
+    html += `<div class="code-cat" style="--cat-color:${cat.color}">
+      <div class="code-cat-name">${cat.name}</div>`;
+    for (const [type, def] of Object.entries(BLOCK_DEFS)) {
+      if (def.category !== catId) continue;
+      const preview = renderBlockPreview(type, def);
+      html += `<div class="code-pal-block" data-type="${type}" draggable="true">${preview}</div>`;
+    }
+    html += `</div>`;
+  }
+  list.innerHTML = html;
+  // Render scripts
+  renderScripts();
+  // Add event listeners for palette
+  list.querySelectorAll('.code-pal-block').forEach(el => {
+    el.addEventListener('click', () => {
+      const type = el.dataset.type;
+      addBlockToCurrent(type);
+    });
+  });
+}
+
+function renderBlockPreview(type, def) {
+  const params = def.params || [];
+  let pHtml = '';
+  for (const p of params) {
+    pHtml += renderParamInput(type, p, { [p.name]: p.default });
+  }
+  return `<span class="code-block-label">${def.label}</span>${pHtml}`;
+}
+
+function renderParamInput(blockType, p, params) {
+  const val = params[p.name] !== undefined ? params[p.name] : p.default;
+  if (p.type === 'number') {
+    return `<input class="code-param num" type="number" value="${val}" min="${p.min||0}" max="${p.max||9999}" data-block="${blockType}" data-param="${p.name}" />`;
+  } else if (p.type === 'string') {
+    return `<input class="code-param str" type="text" value="${val}" data-block="${blockType}" data-param="${p.name}" />`;
+  } else if (p.type === 'select') {
+    let opts = p.options.map(o => `<option value="${o}" ${o===val?'selected':''}>${o}</option>`).join('');
+    return `<select class="code-param sel" data-block="${blockType}" data-param="${p.name}">${opts}</select>`;
+  } else if (p.type === 'select_block') {
+    let opts = '';
+    for (let i = 1; i < 30; i++) {
+      opts += `<option value="${i}" ${i===val?'selected':''}>${BLOCK_NAMES[i] || i}</option>`;
+    }
+    return `<select class="code-param sel" data-block="${blockType}" data-param="${p.name}">${opts}</select>`;
+  }
+  return '';
+}
+
+function renderScripts() {
+  const wrap = document.getElementById('code-scripts');
+  if (!wrap) return;
+  let html = '';
+  for (let i = 0; i < savedScripts.length; i++) {
+    const s = savedScripts[i];
+    const def = BLOCK_DEFS[s.type];
+    html += `<div class="code-script ${i===currentScript?.__idx?'active':''}" data-idx="${i}">
+      <div class="code-script-head">
+        <span class="code-block" style="--bc:${BLOCK_CATEGORIES[def.category].color}">${def.label}</span>
+        <button class="code-script-del" data-idx="${i}">✕</button>
+      </div>
+      ${renderBlockTree(s, s)}
+    </div>`;
+  }
+  // New script button
+  html += `<div class="code-add-script">
+    <div style="color:#888;font-size:11px;margin-bottom:4px">เพิ่ม script ใหม่ (hat block):</div>
+    <button data-hat="on_start" class="code-add-hat">🏁 เริ่ม</button>
+    <button data-hat="on_chat" class="code-add-hat">💬 พูด</button>
+    <button data-hat="on_key" class="code-add-hat">⌨ กดปุ่ม</button>
+  </div>`;
+  wrap.innerHTML = html;
+  // Hook delete
+  wrap.querySelectorAll('.code-script-del').forEach(b => {
+    b.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = parseInt(b.dataset.idx);
+      savedScripts.splice(idx, 1);
+      saveScripts();
+      renderScripts();
+    });
+  });
+  // Hook add hat
+  wrap.querySelectorAll('.code-add-hat').forEach(b => {
+    b.addEventListener('click', () => {
+      const type = b.dataset.hat;
+      savedScripts.push({ id: Date.now() + '_' + Math.random().toString(36).slice(2), type, params: {}, next: null, children: null });
+      saveScripts();
+      renderScripts();
+    });
+  });
+  // Param inputs
+  wrap.querySelectorAll('.code-param').forEach(input => {
+    input.addEventListener('change', e => {
+      const el = e.target;
+      const blockId = el.closest('[data-block-id]')?.dataset.blockId;
+      const param = el.dataset.param;
+      const block = findBlockById(savedScripts, blockId);
+      if (!block) return;
+      let val = el.value;
+      if (el.classList.contains('num')) val = parseFloat(val) || 0;
+      if (block.params) block.params[param] = val;
+      saveScripts();
+    });
+    input.addEventListener('click', e => e.stopPropagation());
+  });
+  // Block-level click: focus this script
+  wrap.querySelectorAll('.code-script').forEach(s => {
+    s.addEventListener('click', () => {
+      currentScript = savedScripts[parseInt(s.dataset.idx)];
+      currentScript.__idx = parseInt(s.dataset.idx);
+      wrap.querySelectorAll('.code-script').forEach(x => x.classList.toggle('active', parseInt(x.dataset.idx) === currentScript.__idx));
+    });
+  });
+}
+
+function findBlockById(scripts, id) {
+  for (const s of scripts) {
+    const found = walkBlocks(s, b => b.id === id);
+    if (found) return found;
+  }
+  return null;
+}
+function walkBlocks(block, fn) {
+  if (!block) return null;
+  if (fn(block)) return block;
+  if (block.next) {
+    const r = walkBlocks(block.next, fn);
+    if (r) return r;
+  }
+  if (Array.isArray(block.children)) {
+    for (const c of block.children) {
+      const r = walkBlocks(c, fn);
+      if (r) return r;
+    }
+  }
+  return null;
+}
+
+function renderBlockTree(rootBlock, current) {
+  // Render the chain of next + children
+  let html = '';
+  let block = rootBlock;
+  while (block) {
+    html += renderBlockNode(block);
+    if (!block.next) break;
+    block = block.next;
+  }
+  return html;
+}
+
+function renderBlockNode(block) {
+  const def = BLOCK_DEFS[block.type];
+  if (!def) return '';
+  const cat = BLOCK_CATEGORIES[def.category];
+  let html = `<div class="code-block-row" data-block-id="${block.id}">
+    <div class="code-block" style="--bc:${cat.color}">`;
+  html += `<span class="code-block-label">${def.label}</span>`;
+  if (block.params) {
+    for (const p of def.params) {
+      html += renderParamInput(block.type, p, block.params);
+    }
+  }
+  html += `<button class="code-block-del" data-block-id="${block.id}">✕</button>`;
+  html += `</div>`;
+  if (def.hasChildren) {
+    html += `<div class="code-block-children" data-parent-id="${block.id}">`;
+    if (block.children && block.children.length) {
+      for (const c of block.children) {
+        html += renderBlockNode(c);
+      }
+    } else {
+      html += `<div class="code-block-empty">ลาก/คลิกบล็อกเพื่อใส่</div>`;
+    }
+    html += `</div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+// Add a new block under the currently focused script (or as next of last)
+function addBlockToCurrent(type) {
+  const def = BLOCK_DEFS[type];
+  if (!def) return;
+  if (def.kind === 'hat') {
+    // New script
+    savedScripts.push({ id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), type, params: paramDefaults(def), next: null, children: null });
+    saveScripts();
+    renderScripts();
+    return;
+  }
+  // Find currently focused script (or first one)
+  let target = currentScript || savedScripts[0];
+  if (!target) {
+    // No script, create on_start first
+    savedScripts.push({ id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), type: 'on_start', params: {}, next: null, children: null });
+    target = savedScripts[0];
+  }
+  const newBlock = { id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), type, params: paramDefaults(def), next: null, children: def.hasChildren ? [] : null };
+  // If C-block and a C-block is currently selected/focused, add to its children
+  // For simplicity: append to end of main chain
+  let last = target;
+  while (last.next) last = last.next;
+  if (last.type === 'on_chat' || last.type === 'on_key' || last.type === 'on_start') {
+    last.next = newBlock;
+  } else {
+    // Walk through C-blocks
+    while (last.next) last = last.next;
+    last.next = newBlock;
+  }
+  saveScripts();
+  renderScripts();
+}
+
+function paramDefaults(def) {
+  const p = {};
+  for (const pp of def.params || []) p[pp.name] = pp.default;
+  return p;
+}
+
+// Run/Stop
+function runProgram() {
+  if (executor) executor.stop();
+  if (savedScripts.length === 0) {
+    toast('⚠ ไม่มี script — เพิ่มบล็อกก่อน');
+    return;
+  }
+  // Spawn agent at player position
+  agent.x = player.x;
+  agent.y = player.y;
+  agent.z = player.z;
+  agent.yaw = player.yaw;
+  agent.visible = true;
+  agent.active = true;
+  executor = new Executor(agent);
+  executor.scripts = savedScripts;
+  // Process hat blocks: on_start → run immediately, on_chat/on_key → register
+  for (const s of savedScripts) {
+    if (s.type === 'on_start') {
+      executor.execBlock(s);
+    } else if (s.type === 'on_chat' && s.next) {
+      // Register chat trigger
+      const cmd = s.params.command;
+      if (!executor.chatHandlers) executor.chatHandlers = new Map();
+      if (!executor.chatHandlers.has(cmd)) executor.chatHandlers.set(cmd, []);
+      executor.chatHandlers.get(cmd).push(s);
+    } else if (s.type === 'on_key' && s.next) {
+      const key = s.params.key;
+      if (!executor.keyHandlers) executor.keyHandlers = new Map();
+      if (!executor.keyHandlers.has(key)) executor.keyHandlers.set(key, []);
+      executor.keyHandlers.get(key).push(s);
+    }
+  }
+  toast('▶ รัน script — Bot กำลังทำงาน');
+}
+
+function stopProgram() {
+  if (executor) {
+    executor.stop();
+    executor = null;
+  }
+  agent.active = false;
+  setTimeout(() => { agent.visible = false; }, 1000);
+  toast('⏹ หยุด script แล้ว');
+}
+
+// Trigger a chat script (called from chat input)
+function triggerChatScript(cmd) {
+  if (!executor || !executor.chatHandlers) return;
+  const scripts = executor.chatHandlers.get(cmd);
+  if (scripts) {
+    for (const s of scripts) executor.execBlock(s);
+  }
+}
+
+// Trigger a key script (called from key handler)
+function triggerKeyScript(key) {
+  if (!executor || !executor.keyHandlers) return;
+  const scripts = executor.keyHandlers.get(key);
+  if (scripts) {
+    for (const s of scripts) executor.execBlock(s);
+  }
+}
+
+// Render agent (called from renderRemotePlayers) - implemented below
+
+// Hook up UI
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-code')?.addEventListener('click', openCodeEditor);
+  document.getElementById('code-close')?.addEventListener('click', closeCodeEditor);
+  document.getElementById('code-modal')?.addEventListener('click', e => {
+    if (e.target.id === 'code-modal') closeCodeEditor();
+  });
+  document.getElementById('code-run')?.addEventListener('click', runProgram);
+  document.getElementById('code-stop')?.addEventListener('click', stopProgram);
+  document.getElementById('code-load-sample')?.addEventListener('click', loadSampleProgram);
+});
+
+function loadSampleProgram() {
+  savedScripts = [
+    {
+      id: 'b_sample_1',
+      type: 'on_start',
+      params: {},
+      next: {
+        id: 'b_sample_2',
+        type: 'spawn',
+        params: { x: 0, y: 30, z: 0 },
+        next: {
+          id: 'b_sample_3',
+          type: 'say',
+          params: { text: 'สวัสดี! เริ่มสร้างบ้าน' },
+          next: {
+            id: 'b_sample_4',
+            type: 'repeat',
+            params: { count: 5 },
+            children: [
+              { id: 'b_sample_5', type: 'place', params: { block: 1 }, next: { id: 'b_sample_5b', type: 'walk', params: { direction: 'forward', count: 1 }, next: null }, children: null }
+            ],
+            next: {
+              id: 'b_sample_6',
+              type: 'say',
+              params: { text: 'เสร็จแล้ว!' },
+              next: null,
+              children: null,
+            }
+          }
+        }
+      }
+    }
+  ];
+  saveScripts();
+  renderScripts();
+  toast('📝 โหลดตัวอย่าง — กด Run เพื่อดู Bot ทำงาน');
+}
 
 </script>
 </body>
