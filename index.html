@@ -270,6 +270,30 @@
   .code-export-modal button{background:#3a3a4a;color:#fff;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:5px;cursor:pointer;transition:all .15s}
   .code-export-modal button:hover{background:#4a4a5a;transform:translateY(-1px)}
   .code-export-modal .btn-copy{background:linear-gradient(180deg,#7cda24,#5ba818);color:#000}
+
+  /* World Browser */
+  #worlds-list .world-row{padding:12px;background:rgba(60,60,80,.25);border:1px solid rgba(255,255,255,.08);border-radius:8px;margin-bottom:8px;transition:all .15s;display:flex;align-items:center;gap:12px}
+  #worlds-list .world-row:hover{background:rgba(60,60,80,.45);border-color:rgba(251,191,36,.3);transform:translateX(2px)}
+  #worlds-list .world-icon{font-size:32px;width:50px;height:50px;background:linear-gradient(135deg,#fbbf24,#f59e0b);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px rgba(245,158,11,.3)}
+  #worlds-list .world-info{flex:1;min-width:0}
+  #worlds-list .world-name{font-weight:700;color:#fff;font-size:14px;margin-bottom:2px}
+  #worlds-list .world-meta{font-size:11px;color:#888;display:flex;flex-wrap:wrap;gap:8px}
+  #worlds-list .world-meta span{display:flex;align-items:center;gap:3px}
+  #worlds-list .world-actions{display:flex;gap:4px;flex-shrink:0}
+  #worlds-list .world-actions button{background:rgba(255,255,255,.06);color:#fff;border:1px solid rgba(255,255,255,.1);padding:7px 12px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;transition:all .15s}
+  #worlds-list .world-actions button:hover{background:rgba(255,255,255,.15);transform:translateY(-1px)}
+  #worlds-list .world-actions .btn-resume{background:linear-gradient(180deg,#7cda24,#5ba818);color:#000;border-color:#4a8812}
+  #worlds-list .world-actions .btn-resume:hover{background:linear-gradient(180deg,#8cea34,#6cc828)}
+  #worlds-list .world-actions .btn-delete{background:rgba(239,68,68,.15);color:#fca5a5;border-color:rgba(239,68,68,.3)}
+  #worlds-list .world-actions .btn-delete:hover{background:rgba(239,68,68,.4);color:#fff}
+  #worlds-list .world-empty{text-align:center;padding:40px;color:#888}
+  #worlds-list .world-empty .empty-icon{font-size:48px;margin-bottom:8px;opacity:.5}
+  /* Save indicator (HUD) */
+  #save-indicator{position:absolute;top:80px;right:20px;background:rgba(0,0,0,.7);color:#fff;padding:6px 12px;border-radius:6px;font-size:11px;border:1px solid rgba(251,191,36,.3);z-index:50;display:none;backdrop-filter:blur(4px);transition:all .3s}
+  #save-indicator.show{display:flex;align-items:center;gap:6px;animation:saveIn .3s ease-out}
+  @keyframes saveIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+  #save-indicator.saving{border-color:rgba(124,218,36,.5);color:#7cda24}
+  #save-indicator.saved{border-color:rgba(124,218,36,.5);color:#7cda24}
   .craft-panel{background:rgba(20,20,30,.95);border:2px solid var(--accent2);border-radius:10px;padding:20px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto}
   .craft-panel h2{margin:0 0 10px;color:var(--accent2)}
   .craft-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
@@ -321,6 +345,7 @@
   <div id="hud-hp" title="หัวใจ"></div>
   <div id="hud-hunger" title="ความหิว"></div>
   <div id="minimap"><canvas id="mmcanvas" width="120" height="120"></canvas></div>
+  <div id="save-indicator"></div>
   <div id="selected-preview">บล็อก: <span id="sel-name">หญ้า</span></div>
   <div id="hotbar"></div>
 </div>
@@ -357,6 +382,7 @@
     <button id="btn-load" class="alt">📂 โหลดเซฟ</button>
     <button id="btn-mp-host" style="background:#4a9eff;box-shadow:0 4px 0 #2a5e9f">🌐 สร้างห้องออนไลน์</button>
     <button id="btn-mp-join" style="background:#7cda24;box-shadow:0 4px 0 #4a8a14">🔑 เข้าห้อง (มีรหัส)</button>
+    <button id="btn-worlds" style="background:#fbbf24;box-shadow:0 4px 0 #b46e00;color:#000">🌍 โลกที่บันทึก <span id="world-count" style="font-size:10px;opacity:.8">(0)</span></button>
     <button id="btn-mods" style="background:#a855f7;box-shadow:0 4px 0 #6b21a8">📦 Mods <span id="mod-count" style="font-size:10px;opacity:.8">(1)</span></button>
     <button id="btn-code" style="background:#f59e0b;box-shadow:0 4px 0 #b46e00">🧩 Code Editor</button>
   </div>
@@ -433,6 +459,24 @@
 # categories: basic, tools, building, food, other
 # block: 'block:N' where N is block ID (0-29)</pre>
     </details>
+  </div>
+</div>
+
+<!-- World Browser modal (Persistent Worlds) -->
+<div id="worlds-modal" class="code-export-modal">
+  <div class="code-export-panel" style="width:720px;max-width:94vw">
+    <h3 style="color:#fbbf24;margin:0 0 6px;background:linear-gradient(45deg,#fbbf24,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🌍 World Browser</h3>
+    <p style="color:#888;font-size:12px;margin:0 0 14px">โลกที่บันทึกบน server — resume ได้แม้ host ออกไปแล้ว</p>
+    <div id="worlds-list" style="max-height:400px;overflow-y:auto;margin-bottom:12px"></div>
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;justify-content:space-between;align-items:center">
+      <div style="color:#666;font-size:11px">
+        💾 Auto-save ทุก 30s • Save เมื่อ host ออก
+      </div>
+      <div style="display:flex;gap:6px">
+        <button id="worlds-refresh" style="background:#3a3a4a;color:#fff;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">🔄 Refresh</button>
+        <button id="worlds-close" style="background:linear-gradient(180deg,#555,#333);color:#fff;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">ปิด</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2476,8 +2520,14 @@ function loadSavedWorld() {
 // INIT
 // ======================================================================
 document.getElementById('btn-play').addEventListener('click', () => {
-  startNewWorld();
-  lockPointer();
+  // If in MP mode and world is already loaded, don't regenerate
+  if (mp.connected && mp.roomCode && world && world.length > 0) {
+    // Just lock pointer, world is already loaded
+    lockPointer();
+  } else {
+    startNewWorld();
+    lockPointer();
+  }
 });
 document.getElementById('btn-load').addEventListener('click', () => {
   if (loadSavedWorld()) {
@@ -4286,8 +4336,10 @@ function handleMPMessage(msg) {
     mp.myId = msg.id;
     mp.isHost = true;
     updateMPStatus('สร้างห้อง ' + msg.code, '#7cda24');
-    // After world gen, share it
-    shareWorldState();
+    // Only share local world if not resumed (resumed world comes via world_sync)
+    if (!msg.resumed) {
+      shareWorldState();
+    }
     setTimeout(hideMPStatus, 3000);
     updateMPUI();
   }
@@ -4366,6 +4418,13 @@ function handleMPMessage(msg) {
   }
   else if (t === 'world_sync') {
     applyWorldState(msg.world, msg.seed);
+  }
+  else if (t === 'world_saved') {
+    // Server confirmed save
+    showSaveIndicator('saved');
+    if (msg.meta) {
+      console.log('World saved:', msg.meta.code, msg.meta.blockCount, 'blocks');
+    }
   }
   else if (t === 'chat') {
     addChat(msg.name, msg.msg, msg.color);
@@ -5974,6 +6033,25 @@ function stopProgram() {
   toast('⏹ หยุด script แล้ว');
 }
 
+// Auto-save world state to server every 30s
+let _lastAutoSave = 0;
+function autoSaveIfHost() {
+  if (!mp.connected || !mp.isHost || !mp.roomCode) return;
+  const now = Date.now();
+  if (now - _lastAutoSave < 30000) return;
+  _lastAutoSave = now;
+  if (typeof world === 'undefined' || !world) return;
+  showSaveIndicator('saving');
+  sendMP({
+    type: 'world_save',
+    world: { W, D, H, array: Array.from(world), seed: typeof currentSeed !== 'undefined' ? currentSeed : null }
+  });
+}
+// Hook auto-save into the game loop (run every frame, throttled inside)
+let _origRenderForSave = null;
+// We'll call autoSaveIfHost from a simple interval
+setInterval(autoSaveIfHost, 5000);
+
 // Trigger a chat script (called from chat input)
 function triggerChatScript(cmd) {
   if (!executor || !executor.chatHandlers) return;
@@ -6862,6 +6940,256 @@ function applyAIResult(mode) {
   closeAIModal();
   toast('✅ เพิ่ม script แล้ว (' + newScripts.length + ' ตัว)');
 }
+
+// ======================================================================
+// WORLD BROWSER (Persistent Worlds)
+// ======================================================================
+function getMPBaseURL() {
+  // Returns base URL for MP server (same as WebSocket but with http/https)
+  const loc = window.location;
+  const host = loc.hostname;
+  if (host.endsWith('space.minimax.io')) {
+    return 'http://103.253.75.161:3109';
+  }
+  return loc.protocol + '//' + loc.hostname + ':3109';
+}
+
+async function fetchWorlds() {
+  try {
+    const res = await fetch(getMPBaseURL() + '/api/worlds');
+    if (!res.ok) return [];
+    return await res.json();
+  } catch(e) {
+    console.warn('fetchWorlds:', e);
+    return [];
+  }
+}
+
+async function fetchWorld(code) {
+  try {
+    const res = await fetch(getMPBaseURL() + '/api/worlds/' + code);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch(e) {
+    return null;
+  }
+}
+
+async function deleteWorldReq(code) {
+  try {
+    const res = await fetch(getMPBaseURL() + '/api/worlds/' + code, { method: 'DELETE' });
+    return res.ok;
+  } catch(e) {
+    return false;
+  }
+}
+
+async function openWorldsModal() {
+  document.getElementById('worlds-modal').classList.add('show');
+  await renderWorldsList();
+  unlockPointer();
+}
+
+function closeWorldsModal() {
+  document.getElementById('worlds-modal').classList.remove('show');
+  // Only re-lock pointer if we were already in-game
+  if (typeof mouseLocked !== 'undefined' && mouseLocked) {
+    lockPointer();
+  }
+}
+
+async function renderWorldsList() {
+  const list = document.getElementById('worlds-list');
+  if (!list) return;
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:#888">⏳ Loading...</div>';
+  const worlds = await fetchWorlds();
+  // Update count badge
+  const badge = document.getElementById('world-count');
+  if (badge) badge.textContent = `(${worlds.length})`;
+  if (worlds.length === 0) {
+    list.innerHTML = `<div class="world-empty">
+      <div class="empty-icon">🌍</div>
+      <div style="font-size:14px;margin-bottom:6px;color:#aaa">ยังไม่มีโลกที่บันทึก</div>
+      <div style="font-size:11px;color:#666">สร้างห้อง → เล่น → เมื่อ host ออก โลกจะถูก save อัตโนมัติ</div>
+    </div>`;
+    return;
+  }
+  let html = '';
+  for (const w of worlds) {
+    const sizeStr = `${w.W}×${w.D}×${w.H}`;
+    const blocksStr = (w.blockCount || 0).toLocaleString();
+    const timeAgo = timeSince(w.lastSaved);
+    const dateStr = new Date(w.lastSaved).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+    html += `<div class="world-row" data-code="${w.code}">
+      <div class="world-icon">🌍</div>
+      <div class="world-info">
+        <div class="world-name">${escapeHTML(w.name || 'World ' + w.code)}</div>
+        <div class="world-meta">
+          <span>🆔 ${w.code}</span>
+          <span>📐 ${sizeStr}</span>
+          <span>🧱 ${blocksStr} blocks</span>
+          <span>👤 ${escapeHTML(w.lastHost || 'Unknown')}</span>
+          <span>⏰ ${timeAgo}</span>
+        </div>
+        <div class="world-meta" style="margin-top:2px">
+          <span style="color:#666">📅 ${dateStr}</span>
+        </div>
+      </div>
+      <div class="world-actions">
+        <button class="btn-resume" data-code="${w.code}">▶ Resume</button>
+        <button class="btn-rename" data-code="${w.code}" title="เปลี่ยนชื่อ">✏️</button>
+        <button class="btn-delete" data-code="${w.code}" title="ลบ">🗑</button>
+      </div>
+    </div>`;
+  }
+  list.innerHTML = html;
+  // Hook actions
+  list.querySelectorAll('.btn-resume').forEach(b => {
+    b.addEventListener('click', e => {
+      e.stopPropagation();
+      resumeWorld(b.dataset.code);
+    });
+  });
+  list.querySelectorAll('.btn-rename').forEach(b => {
+    b.addEventListener('click', e => {
+      e.stopPropagation();
+      renameWorldPrompt(b.dataset.code);
+    });
+  });
+  list.querySelectorAll('.btn-delete').forEach(b => {
+    b.addEventListener('click', e => {
+      e.stopPropagation();
+      if (confirm('ลบโลก ' + b.dataset.code + '? (ไม่สามารถกู้คืนได้)')) {
+        deleteWorldReq(b.dataset.code).then(ok => {
+          if (ok) {
+            toast('🗑 ลบโลกแล้ว');
+            renderWorldsList();
+          } else {
+            toast('❌ ลบไม่สำเร็จ');
+          }
+        });
+      }
+    });
+  });
+}
+
+function timeSince(ts) {
+  if (!ts) return 'ไม่ทราบ';
+  const diff = Date.now() - ts;
+  if (diff < 60000) return Math.floor(diff/1000) + 's ที่แล้ว';
+  if (diff < 3600000) return Math.floor(diff/60000) + 'นาที ที่แล้ว';
+  if (diff < 86400000) return Math.floor(diff/3600000) + 'ชม. ที่แล้ว';
+  return Math.floor(diff/86400000) + 'วัน ที่แล้ว';
+}
+
+function escapeHTML(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function renameWorldPrompt(code) {
+  const newName = prompt('เปลี่ยนชื่อโลก ' + code + ':');
+  if (!newName) return;
+  try {
+    const res = await fetch(getMPBaseURL() + '/api/worlds/' + code + '/rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName })
+    });
+    if (res.ok) {
+      toast('✏️ เปลี่ยนชื่อแล้ว');
+      renderWorldsList();
+    } else {
+      toast('❌ เปลี่ยนชื่อไม่สำเร็จ');
+    }
+  } catch(e) {
+    toast('❌ ' + e.message);
+  }
+}
+
+// Resume a saved world: create a new room with that world preloaded
+async function resumeWorld(code) {
+  closeWorldsModal();
+  toast('🌍 กำลังโหลดโลก ' + code + '...');
+  // Show MP panel UI
+  showMPPanel('host');
+  document.getElementById('mp-info').textContent = '🌍 กำลัง Resume โลก ' + code + '...';
+  // Reset state
+  mp.connected = false;
+  mp.roomCode = null;
+  mp.isHost = true;
+  // Clear any pending reconnect timer (race condition)
+  if (mp.reconnectTimer) {
+    clearTimeout(mp.reconnectTimer);
+    mp.reconnectTimer = null;
+  }
+  // Force close existing WS
+  if (mp.ws) {
+    try { mp.ws.close(); } catch(e) {}
+    mp.ws = null;
+  }
+  // Wait for the close to actually complete
+  await new Promise(r => setTimeout(r, 500));
+  // Reconnect WS
+  if (typeof connectMP === 'function') {
+    connectMP();
+    // Wait for WS to be open
+    for (let i = 0; i < 100; i++) {
+      if (mp.ws && mp.ws.readyState === WebSocket.OPEN) {
+        // Send create_room with resumeCode
+        sendMP({ type: 'create_room', name: mp.myName, color: mp.myColor, resumeCode: code });
+        return;
+      }
+      await new Promise(r => setTimeout(r, 100));
+    }
+    toast('❌ ไม่สามารถเชื่อมต่อ WebSocket');
+  }
+}
+
+function updateWorldCount() {
+  fetchWorlds().then(worlds => {
+    const badge = document.getElementById('world-count');
+    if (badge) badge.textContent = `(${worlds.length})`;
+  });
+}
+
+// Save indicator (HUD)
+let _saveIndicatorTimer = null;
+function showSaveIndicator(state) {
+  const el = document.getElementById('save-indicator');
+  if (!el) return;
+  if (_saveIndicatorTimer) clearTimeout(_saveIndicatorTimer);
+  if (state === 'saving') {
+    el.innerHTML = '<span style="animation:spin 1s linear infinite">⏳</span> <span>Saving...</span>';
+    el.className = 'show saving';
+  } else if (state === 'saved') {
+    el.innerHTML = '<span>✓</span> <span>Saved</span>';
+    el.className = 'show saved';
+    _saveIndicatorTimer = setTimeout(() => el.classList.remove('show'), 2000);
+  } else if (state === 'host-left') {
+    el.innerHTML = '<span>💾</span> <span>Host ออก — โลกถูก save แล้ว</span>';
+    el.className = 'show saved';
+    _saveIndicatorTimer = setTimeout(() => el.classList.remove('show'), 4000);
+  } else {
+    el.classList.remove('show');
+  }
+}
+// Add spin keyframe
+const _spinCSS = document.createElement('style');
+_spinCSS.textContent = '@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}';
+document.head.appendChild(_spinCSS);
+
+// Hook up world browser
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-worlds')?.addEventListener('click', openWorldsModal);
+  document.getElementById('worlds-close')?.addEventListener('click', closeWorldsModal);
+  document.getElementById('worlds-refresh')?.addEventListener('click', renderWorldsList);
+  document.getElementById('worlds-modal')?.addEventListener('click', e => {
+    if (e.target.id === 'worlds-modal') closeWorldsModal();
+  });
+  // Update count on load
+  setTimeout(updateWorldCount, 1000);
+  setInterval(updateWorldCount, 30000);
+});
 
 </script>
 </body>
