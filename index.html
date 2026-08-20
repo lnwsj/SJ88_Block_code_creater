@@ -2,7 +2,12 @@
 <html lang="th">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0a14">
+<link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22MiniCraft%203D%22%2C%22short_name%22%3A%22MiniCraft%22%2C%22start_url%22%3A%22%2F%22%2C%22display%22%3A%22fullscreen%22%2C%22orientation%22%3A%22landscape%22%2C%22background_color%22%3A%22%230a0a14%22%2C%22theme_color%22%3A%22%23f59e0b%22%2C%22icons%22%3A%5B%5D%7D">
 <title>MiniCraft 3D - มายคราฟออฟไลน์</title>
 <style>
   :root{
@@ -104,7 +109,7 @@
   #toast.show{opacity:1}
 
   /* Hide HUD when not playing */
-  body.playing #start-screen, body.playing #pause{display:none}
+  body.playing #start-screen, body.playing #pause:not(.show){display:none}
   body:not(.playing) #hud{display:none}
 
   /* HP/Heart bar (above hotbar) */
@@ -294,6 +299,54 @@
   @keyframes saveIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
   #save-indicator.saving{border-color:rgba(124,218,36,.5);color:#7cda24}
   #save-indicator.saved{border-color:rgba(124,218,36,.5);color:#7cda24}
+
+  /* === MOBILE TOUCH CONTROLS === */
+  /* Only show on touch devices */
+  #mobile-controls{display:none;position:absolute;inset:0;pointer-events:none;z-index:60;touch-action:none}
+  body.touch #mobile-controls{display:block}
+  /* Hide hotbar text/secondary on mobile */
+  body.touch #selected-preview{font-size:11px;padding:4px 8px;bottom:90px;left:50%;transform:translateX(-50%)}
+  body.touch #minimap{width:80px;height:80px;bottom:90px;right:10px}
+  body.touch #minimap canvas{width:80px;height:80px}
+  body.touch #hud-hp,body.touch #hud-hunger{font-size:14px;padding:3px 8px}
+  body.touch #hud-hp{top:8px;left:8px}
+  body.touch #hud-hunger{top:8px;left:80px}
+  body.touch #hotbar{bottom:50px;left:50%;transform:translateX(-50%);padding:4px}
+  body.touch .hotbar-slot{width:38px;height:38px}
+  body.touch #ach-popup{font-size:12px;max-width:80vw}
+  /* Joystick (left side) */
+  #mobile-joystick{position:absolute;left:20px;bottom:120px;width:130px;height:130px;pointer-events:auto}
+  #mobile-joystick-base{position:absolute;inset:0;background:radial-gradient(circle,rgba(255,255,255,.12),rgba(255,255,255,.04) 70%);border:2px solid rgba(255,255,255,.25);border-radius:50%;box-shadow:inset 0 0 20px rgba(0,0,0,.3)}
+  #mobile-joystick-thumb{position:absolute;left:50%;top:50%;width:54px;height:54px;background:radial-gradient(circle,rgba(255,255,255,.7),rgba(255,255,255,.3));border:2px solid rgba(255,255,255,.6);border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 4px 12px rgba(0,0,0,.4);transition:transform .05s}
+  /* Look area (right side, drag to look) */
+  #mobile-look{position:absolute;right:0;top:80px;bottom:130px;left:55%;pointer-events:auto;background:transparent}
+  /* Action buttons (right side, vertical) */
+  #mobile-buttons{position:absolute;right:14px;top:80px;display:flex;flex-direction:column;gap:10px;pointer-events:auto}
+  .mob-btn{width:56px;height:56px;border-radius:50%;border:2px solid rgba(255,255,255,.4);background:radial-gradient(circle,rgba(255,255,255,.18),rgba(255,255,255,.06));color:#fff;font-size:22px;cursor:pointer;backdrop-filter:blur(4px);box-shadow:0 4px 10px rgba(0,0,0,.4);transition:all .1s;display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
+  .mob-btn:active{transform:scale(.9);background:radial-gradient(circle,rgba(255,255,255,.4),rgba(255,255,255,.15));box-shadow:0 2px 4px rgba(0,0,0,.4)}
+  .mob-btn.mob-jump{background:radial-gradient(circle,rgba(124,218,36,.5),rgba(124,218,36,.2));border-color:rgba(124,218,36,.7)}
+  .mob-btn.mob-fly{background:radial-gradient(circle,rgba(74,158,255,.5),rgba(74,158,255,.2));border-color:rgba(74,158,255,.7)}
+  .mob-btn.mob-break{background:radial-gradient(circle,rgba(239,68,68,.5),rgba(239,68,68,.2));border-color:rgba(239,68,68,.7)}
+  .mob-btn.mob-place{background:radial-gradient(circle,rgba(251,191,36,.5),rgba(251,191,36,.2));border-color:rgba(251,191,36,.7)}
+  .mob-btn.mob-inv{background:radial-gradient(circle,rgba(168,85,247,.5),rgba(168,85,247,.2));border-color:rgba(168,85,247,.7)}
+  .mob-btn.mob-menu{background:radial-gradient(circle,rgba(255,255,255,.18),rgba(255,255,255,.06))}
+  /* Mobile modals - make them scrollable and use more screen */
+  body.touch .code-export-panel,body.touch .craft-panel{max-width:96vw;max-height:92vh;overflow-y:auto;padding:14px}
+  body.touch .code-body{grid-template-columns:1fr}
+  body.touch #code-blocks-list{display:none}
+  body.touch #code-scripts{padding:0 8px}
+  body.touch button{font-size:13px;padding:8px 12px}
+  body.touch .code-btn{font-size:11px;padding:7px 10px}
+  body.touch #code-modal .code-top{padding:10px 12px;flex-wrap:wrap;gap:6px}
+  body.touch #code-modal .code-top h2{font-size:16px;width:100%}
+  body.touch #code-modal .code-stats{font-size:10px}
+  /* Hide pointer lock prompt on mobile */
+  body.touch #pause h2{font-size:18px}
+  /* Smaller text inputs */
+  body.touch input,body.touch textarea,body.touch select{font-size:16px !important}  /* iOS zoom prevention */
+  body.touch #start-screen{padding:14px}
+  body.touch #start-screen h1{font-size:32px}
+  body.touch #start-screen button{font-size:13px;padding:10px 14px}
   .craft-panel{background:rgba(20,20,30,.95);border:2px solid var(--accent2);border-radius:10px;padding:20px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto}
   .craft-panel h2{margin:0 0 10px;color:var(--accent2)}
   .craft-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
@@ -348,6 +401,22 @@
   <div id="save-indicator"></div>
   <div id="selected-preview">บล็อก: <span id="sel-name">หญ้า</span></div>
   <div id="hotbar"></div>
+  <!-- Mobile touch controls (shown only on touch devices) -->
+  <div id="mobile-controls">
+    <div id="mobile-joystick">
+      <div id="mobile-joystick-base"></div>
+      <div id="mobile-joystick-thumb"></div>
+    </div>
+    <div id="mobile-look"></div>
+    <div id="mobile-buttons">
+      <button class="mob-btn mob-jump" data-action="jump">⬆</button>
+      <button class="mob-btn mob-fly" data-action="fly">✈</button>
+      <button class="mob-btn mob-break" data-action="break">⛏</button>
+      <button class="mob-btn mob-place" data-action="place">🧱</button>
+      <button class="mob-btn mob-inv" data-action="inv">🎒</button>
+      <button class="mob-btn mob-menu" data-action="menu">☰</button>
+    </div>
+  </div>
 </div>
 <div id="day-tint" class="day"></div>
 <div id="hurt-flash"></div>
@@ -2014,6 +2083,204 @@ canvas.addEventListener('mousedown', (e) => {
   }
 });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
+// ======================================================================
+// MOBILE TOUCH SUPPORT
+// ======================================================================
+const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+if (isTouchDevice) document.body.classList.add('touch');
+// Prevent iOS double-tap zoom
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('dblclick', e => e.preventDefault());
+
+// Touch state
+const touch = {
+  joystick: null,    // { id, baseX, baseY, x, y }
+  look: null,        // { id, lastX, lastY, dx, dy }
+  buttons: new Map(), // id -> active
+};
+
+// Joystick
+const joyEl = document.getElementById('mobile-joystick');
+const joyBase = document.getElementById('mobile-joystick-base');
+const joyThumb = document.getElementById('mobile-joystick-thumb');
+let joyCenter = null;
+function getJoyCenter() {
+  if (!joyCenter) {
+    const r = joyBase.getBoundingClientRect();
+    joyCenter = { x: r.left + r.width/2, y: r.top + r.height/2 };
+  }
+  return joyCenter;
+}
+joyEl.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  const c = getJoyCenter();
+  touch.joystick = { id: t.identifier, baseX: c.x, baseY: c.y, x: c.x, y: c.y };
+  updateJoystickThumb(c.x - 27, c.y - 27);
+}, { passive: false });
+joyEl.addEventListener('touchmove', (e) => {
+  if (!touch.joystick) return;
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (t.identifier === touch.joystick.id) {
+      touch.joystick.x = t.clientX;
+      touch.joystick.y = t.clientY;
+      // Compute distance from base
+      const dx = touch.joystick.x - touch.joystick.baseX;
+      const dy = touch.joystick.y - touch.joystick.baseY;
+      const dist = Math.min(45, Math.sqrt(dx*dx + dy*dy));
+      const angle = Math.atan2(dy, dx);
+      const tx = touch.joystick.baseX + Math.cos(angle) * dist;
+      const ty = touch.joystick.baseY + Math.sin(angle) * dist;
+      updateJoystickThumb(tx - 27, ty - 27);
+    }
+  }
+}, { passive: false });
+function endJoystick() {
+  touch.joystick = null;
+  updateJoystickThumb(-1000, -1000); // hide
+}
+joyEl.addEventListener('touchend', (e) => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === touch.joystick?.id) endJoystick();
+  }
+}, { passive: false });
+joyEl.addEventListener('touchcancel', (e) => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === touch.joystick?.id) endJoystick();
+  }
+}, { passive: false });
+function updateJoystickThumb(x, y) {
+  if (x < -500) { joyThumb.style.opacity = '0'; return; }
+  joyThumb.style.opacity = '0.9';
+  joyThumb.style.left = x + 'px';
+  joyThumb.style.top = y + 'px';
+}
+// Joystick -> movement keys
+function updateJoystickMovement() {
+  if (touch.joystick) {
+    const dx = touch.joystick.x - touch.joystick.baseX;
+    const dy = touch.joystick.y - touch.joystick.baseY;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const deadzone = 12;
+    if (dist > deadzone) {
+      const nx = dx / dist;
+      const ny = dy / dist;
+      // Map to keys (relative to camera yaw)
+      const yaw = player.yaw || 0;
+      const cos = Math.cos(yaw), sin = Math.sin(yaw);
+      // forward = (-sin, -cos) - player yaw is 0 facing -Z
+      // but actually our movement uses sin/cos so let me match existing logic
+      // From code: forward = (sin(yaw), 0, cos(yaw)) so:
+      // In camera-relative: up on joystick (negative dy in screen) = forward
+      // We'll just map directly
+      keys['KeyW'] = (-ny > 0.3);   // up = forward
+      keys['KeyS'] = (-ny < -0.3);  // down = back
+      keys['KeyA'] = (-nx > 0.3);   // left = strafe left
+      keys['KeyD'] = (-nx < -0.3);  // right = strafe right
+    } else {
+      keys['KeyW'] = keys['KeyS'] = keys['KeyA'] = keys['KeyD'] = false;
+    }
+  }
+}
+
+// Look (right side drag)
+const lookEl = document.getElementById('mobile-look');
+lookEl.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  touch.look = { id: t.identifier, lastX: t.clientX, lastY: t.clientY };
+}, { passive: false });
+lookEl.addEventListener('touchmove', (e) => {
+  if (!touch.look) return;
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (t.identifier === touch.look.id) {
+      const dx = t.clientX - touch.look.lastX;
+      const dy = t.clientY - touch.look.lastY;
+      // Apply look (scaled up for touch)
+      player.yaw -= dx * 0.005;
+      player.pitch -= dy * 0.005;
+      if (player.pitch > 1.4) player.pitch = 1.4;
+      if (player.pitch < -1.4) player.pitch = -1.4;
+      touch.look.lastX = t.clientX;
+      touch.look.lastY = t.clientY;
+    }
+  }
+}, { passive: false });
+lookEl.addEventListener('touchend', (e) => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === touch.look?.id) touch.look = null;
+  }
+}, { passive: false });
+lookEl.addEventListener('touchcancel', (e) => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === touch.look?.id) touch.look = null;
+  }
+}, { passive: false });
+
+// Action buttons
+const actionHandlers = {
+  jump: () => { keys['Space'] = true; setTimeout(() => keys['Space'] = false, 100); },
+  fly: () => { player.flyMode = !player.flyMode; toast(player.flyMode ? '✈ Flight ON' : '🚶 Flight OFF'); },
+  break: () => breakBlock(),
+  place: () => placeBlock(),
+  inv: () => { if (typeof openInventory === 'function') openInventory(); else document.getElementById('inv-modal')?.classList.add('show'); },
+  menu: () => { document.exitPointerLock?.(); document.getElementById('pause')?.classList.add('show'); },
+};
+document.querySelectorAll('.mob-btn').forEach(btn => {
+  const action = btn.dataset.action;
+  btn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (actionHandlers[action]) actionHandlers[action]();
+    btn.style.transform = 'scale(0.85)';
+  }, { passive: false });
+  btn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    btn.style.transform = '';
+  }, { passive: false });
+});
+
+// Hotbar touch: tap to select
+document.getElementById('hotbar')?.addEventListener('touchstart', (e) => {
+  const slot = e.target.closest('.hotbar-slot');
+  if (!slot) return;
+  const idx = parseInt(slot.dataset.idx);
+  if (!isNaN(idx)) {
+    selectedSlot = idx;
+    updateHotbarUI();
+  }
+});
+
+// Touch look for canvas: also allow tapping to break
+canvas.addEventListener('touchstart', (e) => {
+  if (!isTouchDevice) return;
+  // If touch is on the canvas directly (not on UI), break
+  if (e.target === canvas) {
+    e.preventDefault();
+    breakBlock();
+  }
+}, { passive: false });
+
+// Integrate joystick into game loop
+let _origMobileLoop = null;
+function mobileUpdate() {
+  if (isTouchDevice) updateJoystickMovement();
+  requestAnimationFrame(mobileUpdate);
+}
+mobileUpdate();
+
+// Don't lock pointer on touch devices
+if (isTouchDevice) {
+  // Override lockPointer to no-op on touch
+  const origLock = window.lockPointer;
+  // No-op on touch devices
+  // (game will still work without pointer lock - we use touch instead)
+}
+// Modify btn-play for mobile: skip lockPointer
+const _origBtnPlayHandler = document.getElementById('btn-play')?.onclick;
+
 canvas.addEventListener('wheel', (e) => {
   if (!mouseLocked) return;
   if (e.deltaY > 0) selectedSlot = (selectedSlot + 1) % HOTBAR.length;
@@ -2522,13 +2789,31 @@ function loadSavedWorld() {
 document.getElementById('btn-play').addEventListener('click', () => {
   // If in MP mode and world is already loaded, don't regenerate
   if (mp.connected && mp.roomCode && world && world.length > 0) {
-    // Just lock pointer, world is already loaded
-    lockPointer();
+    if (!isTouchDevice) lockPointer();
+    else document.body.classList.add('playing'); // mobile: hide start screen without pointer lock
   } else {
     startNewWorld();
-    lockPointer();
+    if (!isTouchDevice) lockPointer();
+    else document.body.classList.add('playing'); // mobile
   }
 });
+// Menu button on mobile: show pause modal
+document.querySelector('.mob-menu')?.addEventListener('click', () => {
+  document.getElementById('pause')?.classList.add('show');
+});
+// Resume from pause
+document.getElementById('btn-resume')?.addEventListener('click', () => {
+  document.getElementById('pause')?.classList.remove('show');
+  if (!isTouchDevice) lockPointer();
+});
+// On mobile, allow tapping outside to resume
+if (isTouchDevice) {
+  document.getElementById('pause')?.addEventListener('click', (e) => {
+    if (e.target.id === 'pause') {
+      document.getElementById('pause').classList.remove('show');
+    }
+  });
+}
 document.getElementById('btn-load').addEventListener('click', () => {
   if (loadSavedWorld()) {
     lockPointer();
