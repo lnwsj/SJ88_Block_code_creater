@@ -337,6 +337,12 @@
   body.touch #code-scripts{padding:0 8px}
   body.touch button{font-size:13px;padding:8px 12px}
   body.touch .code-btn{font-size:11px;padding:7px 10px}
+  /* Craft table & chest slots */
+  .ct-slot, .chest-slot, .ct-output{background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.15);border-radius:4px;width:60px;height:60px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;transition:all .15s}
+  .ct-slot:hover, .chest-slot:hover, .ct-output:hover{background:rgba(251,191,36,.2);border-color:#fbbf24}
+  .ct-slot.has-item, .chest-slot.has-item{background:rgba(60,60,80,.5);border-color:rgba(255,255,255,.25)}
+  .ct-slot .item-icon, .chest-slot .item-icon{position:absolute;inset:6px;display:flex;align-items:center;justify-content:center}
+  .ct-slot .item-count, .chest-slot .item-count{position:absolute;bottom:2px;right:4px;font-size:10px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.9);pointer-events:none}
   body.touch #code-modal .code-top{padding:10px 12px;flex-wrap:wrap;gap:6px}
   body.touch #code-modal .code-top h2{font-size:16px;width:100%}
   body.touch #code-modal .code-stats{font-size:10px}
@@ -705,6 +711,41 @@
   </div>
 </div>
 
+<!-- 3x3 Crafting Table modal -->
+<div id="craft-table-modal" class="code-export-modal">
+  <div class="craft-panel" style="max-width:720px">
+    <button class="inv-close" id="craft-table-close">✕</button>
+    <h2>🔨 โต๊ะคราฟต์ (3x3)</h2>
+    <p style="color:var(--muted);font-size:12px;margin:4px 0 10px">วางของในตาราง → ผลลัพธ์แสดงด้านขวา</p>
+    <div style="display:grid;grid-template-columns:auto 80px auto;gap:14px;align-items:center">
+      <!-- 3x3 input grid -->
+      <div id="ct-input-grid" style="display:grid;grid-template-columns:repeat(3,60px);gap:4px"></div>
+      <!-- Arrow + output -->
+      <div style="font-size:32px;color:#fbbf24">➡</div>
+      <div id="ct-output-slot" style="width:60px;height:60px;background:rgba(0,0,0,.4);border:2px solid #fbbf24;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer"></div>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:6px;justify-content:space-between;align-items:center">
+      <div style="color:#888;font-size:11px">💡 เคล็ดลับ: คลิกช่องเพื่อใส่ของ, คลิกขวาเพื่อเอาออก</div>
+      <button id="ct-clear" style="background:#666;color:#fff;border:0;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:11px">🗑 เคลียร์</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chest modal (storage) -->
+<div id="chest-modal" class="code-export-modal">
+  <div class="craft-panel" style="max-width:720px">
+    <button class="inv-close" id="chest-close">✕</button>
+    <h2>📦 หีบ</h2>
+    <p style="color:var(--muted);font-size:12px;margin:4px 0 10px">คลิกช่องเพื่อย้ายของระหว่างคลังกับหีบ</p>
+    <div style="display:grid;grid-template-columns:1fr;gap:10px">
+      <div>
+        <div style="color:#aaa;font-size:11px;margin-bottom:4px">📦 หีบ</div>
+        <div id="chest-grid" style="display:grid;grid-template-columns:repeat(9,52px);gap:4px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -727,8 +768,8 @@ const CFG = {
   PLAYER_H: 1.75,
   PLAYER_EYE: 1.55,
   REACH: 6.0,
-  ATLAS: 8,        // 8 cols x 4 rows = 32 textures
-  ATLAS_H: 4,      // height in tiles
+  ATLAS: 8,        // 8 cols x 5 rows = 40 textures
+  ATLAS_H: 5,      // height in tiles
   TILE: 16,        // each tile 16x16
   MOUSE_SENS: 0.0022,
   // Tier 1: day/night
@@ -782,10 +823,12 @@ const B = {
   GLASS: 14, TORCH: 15, DOOR: 16, CACTUS: 17,
   SANDSTONE: 18, ICE: 19, ORE_COAL: 20, ORE_IRON: 21,
   ORE_GOLD: 22, ORE_DIAMOND: 23, GLOWSTONE: 24, CRAFTING_TABLE: 25,
-  LEVER: 26, PRESSURE_PLATE: 27, FLOWER: 28, SAPLING: 29
+  LEVER: 26, PRESSURE_PLATE: 27, FLOWER: 28, SAPLING: 29,
+  // Tier 2 additions
+  CHEST: 30, FURNACE: 31
 };
 
-const TRANSPARENT = new Set([B.AIR, B.WATER, B.LEAVES, B.GLASS, B.FLOWER, B.SAPLING, B.ICE]);
+const TRANSPARENT = new Set([B.AIR, B.WATER, B.LEAVES, B.GLASS, B.FLOWER, B.SAPLING, B.ICE, B.TORCH]);
 
 // Atlas is 8x4 = 32 tiles (16 base + 16 new). Each tile still 16x16 = 128x64 atlas
 const ATLAS_W = CFG.ATLAS, ATLAS_H = CFG.ATLAS_H;
@@ -822,6 +865,9 @@ const FACE_TEX = {
   [B.PRESSURE_PLATE]:[31, 31, 31],
   [B.FLOWER]:   [6, 6, 6],
   [B.SAPLING]:  [6, 6, 6],
+  // Atlas row 4 (indexes 32-39)
+  [B.CHEST]:    [33, 32, 34],   // top, side, bottom (different for visual variety)
+  [B.FURNACE]:  [36, 35, 37],   // top, side (furnace front), bottom
 };
 
 const BLOCK_NAMES = {
@@ -833,11 +879,14 @@ const BLOCK_NAMES = {
   [B.ORE_COAL]:'แร่ถ่าน', [B.ORE_IRON]:'แร่เหล็ก', [B.ORE_GOLD]:'แร่ทอง',
   [B.ORE_DIAMOND]:'แร่เพชร', [B.GLOWSTONE]:'หินเรืองแสง', [B.CRAFTING_TABLE]:'โต๊ะคราฟต์',
   [B.LEVER]:'คาน', [B.PRESSURE_PLATE]:'แผ่นเหยียบ',
-  [B.FLOWER]:'ดอกไม้', [B.SAPLING]:'ต้นกล้า'
+  [B.FLOWER]:'ดอกไม้', [B.SAPLING]:'ต้นกล้า',
+  [B.CHEST]:'หีบ', [B.FURNACE]:'เตา'
 };
 
 // Hotbar order
 const HOTBAR = [B.GRASS, B.DIRT, B.STONE, B.SAND, B.WOOD, B.PLANKS, B.COBBLE, B.BRICK];
+// Add chest/furnace in extra slots (1-8 on number row)
+const HOTBAR_EXTRA = [B.CHEST, B.FURNACE, B.GLASS, B.DOOR, B.TORCH, B.GLOWSTONE, B.SANDSTONE, B.CACTUS];
 
 // ======================================================================
 // SAVE SYSTEM
@@ -1434,6 +1483,90 @@ function makeAtlas() {
     ctx.fillRect(1, 9, 14, 1);
   });
 
+  // ===== ROW 4 (tiles 32-39): Tier 2 blocks =====
+  // Tile 32: CHEST side (front of chest)
+  tile(32, (ctx, w, h) => {
+    // wood plank base
+    ctx.fillStyle = '#9c6a30';
+    ctx.fillRect(0, 0, w, h);
+    // horizontal planks
+    ctx.fillStyle = '#7c4a20';
+    for (let i = 3; i < 16; i += 3) ctx.fillRect(0, i, w, 1);
+    // metal corners
+    ctx.fillStyle = '#5a3a18';
+    ctx.fillRect(0, 0, 1, h);
+    ctx.fillRect(w-1, 0, 1, h);
+    // lock
+    ctx.fillStyle = '#ffd800';
+    ctx.fillRect(7, 7, 2, 3);
+    ctx.fillStyle = '#a08000';
+    ctx.fillRect(8, 9, 1, 1);
+  });
+  // Tile 33: CHEST top (lid)
+  tile(33, (ctx, w, h) => {
+    ctx.fillStyle = '#9c6a30';
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#7c4a20';
+    ctx.fillRect(0, 0, w, 1);
+    ctx.fillRect(0, 7, w, 1);
+    ctx.fillStyle = '#5a3a18';
+    ctx.fillRect(0, 8, w, 1);
+    // handle/lock
+    ctx.fillStyle = '#5a3a18';
+    ctx.fillRect(6, 3, 4, 1);
+    ctx.fillRect(6, 6, 4, 1);
+  });
+  // Tile 34: CHEST bottom
+  tile(34, (ctx, w, h) => {
+    ctx.fillStyle = '#7c4a20';
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#5a3a18';
+    ctx.fillRect(0, 0, w, 1);
+    ctx.fillRect(0, h-1, w, 1);
+  });
+  // Tile 35: FURNACE side (furnace front with mouth)
+  tile(35, (ctx, w, h) => {
+    // stone base
+    ctx.fillStyle = '#5a5a5a';
+    ctx.fillRect(0, 0, w, h);
+    // darker top
+    ctx.fillStyle = '#3a3a3a';
+    ctx.fillRect(0, 0, w, 3);
+    // mouth (fire hole)
+    ctx.fillStyle = '#1a0a0a';
+    ctx.fillRect(3, 7, 10, 7);
+    // fire glow
+    ctx.fillStyle = '#ff7700';
+    ctx.fillRect(4, 9, 8, 4);
+    ctx.fillStyle = '#ffaa00';
+    ctx.fillRect(5, 10, 6, 2);
+    ctx.fillStyle = '#ffee00';
+    ctx.fillRect(6, 11, 4, 1);
+    // frame
+    ctx.fillStyle = '#3a3a3a';
+    ctx.fillRect(2, 6, 12, 1);
+    ctx.fillRect(2, 14, 12, 1);
+  });
+  // Tile 36: FURNACE top
+  tile(36, (ctx, w, h) => {
+    ctx.fillStyle = '#3a3a3a';
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#5a5a5a';
+    ctx.fillRect(0, 0, w, 1);
+    ctx.fillRect(0, h-1, w, 1);
+    // hole
+    ctx.fillStyle = '#1a0a0a';
+    ctx.fillRect(4, 4, 8, 8);
+  });
+  // Tile 37: FURNACE bottom
+  tile(37, (ctx, w, h) => {
+    ctx.fillStyle = '#3a3a3a';
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(0, 0, w, 1);
+    ctx.fillRect(0, h-1, w, 1);
+  });
+
   return c;
 }
 
@@ -1446,6 +1579,24 @@ const meta = new Uint8Array(W * D * H); // light, etc.
 
 function idx(x, y, z) { return x + y*W + z*W*D; }
 function inBounds(x, y, z) { return x>=0 && x<W && y>=0 && y<H && z>=0 && z<D; }
+
+// Chest inventories: chestKey (x_y_z) -> {items: [{name, count} x 27], viewers: [playerId]}
+const chests = new Map();
+function chestKey(x, y, z) { return x + '_' + y + '_' + z; }
+function getChest(x, y, z) {
+  const k = chestKey(x, y, z);
+  if (!chests.has(k)) {
+    chests.set(k, { items: new Array(27).fill(null), x, y, z });
+  }
+  return chests.get(k);
+}
+function getChestByKey(k) {
+  if (!chests.has(k)) {
+    const [x, y, z] = k.split('_').map(Number);
+    chests.set(k, { items: new Array(27).fill(null), x, y, z });
+  }
+  return chests.get(k);
+}
 function getBlock(x, y, z) {
   if (!inBounds(x, y, z)) return B.AIR;
   return world[idx(x, y, z)];
@@ -2061,6 +2212,8 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') {
     if (invOpen) closeInventory();
     else if (craftOpen) closeCrafting();
+    else if (ctOpen) closeCraftTable();
+    else if (chestOpen) closeChest();
     else if (mouseLocked) {
       // pause
       document.getElementById('pause').classList.add('show');
@@ -3674,6 +3827,32 @@ const VANILLA_MOD = {
     { id: 'stick', category: 'basic', name: 'ไม้ขีด', result: { name: 'stick', count: 4 }, ingredients: [{ name: 'block:' + B.PLANKS, count: 2 }] },
     { id: 'torch', category: 'basic', name: 'คบไฟ', result: { name: 'torch_item', count: 4 }, ingredients: [{ name: 'stick', count: 1 }, { name: 'coal', count: 1 }] },
     { id: 'crafting_table', category: 'basic', name: 'โต๊ะคราฟต์', result: { name: 'block:' + B.CRAFTING_TABLE, count: 1 }, ingredients: [{ name: 'block:' + B.PLANKS, count: 4 }] },
+    // ===== Tier 2: 3x3 recipes (need crafting table) =====
+    { id: 'chest', category: 'building', name: 'หีบ', needTable: true, result: { name: 'block:' + B.CHEST, count: 1 }, shape: [
+      {item:'block:' + B.PLANKS},{item:'block:' + B.PLANKS},{item:'block:' + B.PLANKS},
+      {item:'block:' + B.PLANKS},{item:'block:' + B.PLANKS},{item:'block:' + B.PLANKS},
+      {item:'block:' + B.PLANKS},{item:'block:' + B.PLANKS},{item:'block:' + B.PLANKS},
+    ] },
+    { id: 'furnace', category: 'building', name: 'เตา', needTable: true, result: { name: 'block:' + B.FURNACE, count: 1 }, shape: [
+      {item:'block:' + B.COBBLE},{item:'block:' + B.COBBLE},{item:'block:' + B.COBBLE},
+      {item:'block:' + B.COBBLE},null,{item:'block:' + B.COBBLE},
+      {item:'block:' + B.COBBLE},{item:'block:' + B.COBBLE},{item:'block:' + B.COBBLE},
+    ] },
+    { id: 'wood_door_3x3', category: 'building', name: 'ประตูไม้ (x3)', needTable: true, result: { name: 'block:' + B.DOOR, count: 3 }, shape: [
+      {item:'block:' + B.PLANKS},null,{item:'block:' + B.PLANKS},
+      {item:'block:' + B.PLANKS},null,{item:'block:' + B.PLANKS},
+      {item:'block:' + B.PLANKS},null,{item:'block:' + B.PLANKS},
+    ] },
+    { id: 'glass_3x3', category: 'basic', name: 'กระจก', needTable: true, result: { name: 'block:' + B.GLASS, count: 1 }, shape: [
+      {item:'block:' + B.SAND},null,{item:'block:' + B.SAND},
+      null,{item:'coal',count:1},null,
+      {item:'block:' + B.SAND},null,{item:'block:' + B.SAND},
+    ] },
+    { id: 'stone_brick_3x3', category: 'building', name: 'อิฐ', needTable: true, result: { name: 'block:' + B.BRICK, count: 4 }, shape: [
+      {item:'block:' + B.STONE},{item:'block:' + B.STONE},null,
+      {item:'block:' + B.STONE},{item:'block:' + B.STONE},null,
+      null,null,null,
+    ] },
     { id: 'glass', category: 'basic', name: 'กระจก', result: { name: 'block:' + B.GLASS, count: 1 }, ingredients: [{ name: 'block:' + B.SAND, count: 1 }, { name: 'coal', count: 1 }] },
     { id: 'brick', category: 'basic', name: 'อิฐ', result: { name: 'block:' + B.BRICK, count: 4 }, ingredients: [{ name: 'block:' + B.COBBLE, count: 4 }] },
     { id: 'wooden_pickaxe', category: 'tools', name: 'พลั่วไม้', result: { name: 'wooden_pickaxe', count: 1 }, ingredients: [{ name: 'block:' + B.PLANKS, count: 3 }, { name: 'stick', count: 2 }] },
@@ -4121,6 +4300,14 @@ function interactBlock() {
   const r = raycast();
   if (!r) return;
   const b = getBlock(r.x, r.y, r.z);
+  if (b === B.CHEST) {
+    openChest(r.x, r.y, r.z);
+    return;
+  }
+  if (b === B.CRAFTING_TABLE) {
+    openCraftTable();
+    return;
+  }
   if (b === B.LEVER) {
     const m = meta[idx(r.x, r.y, r.z)];
     if (m & 4) {
@@ -4167,8 +4354,219 @@ function openCrafting() {
 function closeCrafting() {
   craftOpen = false;
   document.getElementById('craft-modal').classList.remove('show');
-  lockPointer();
+  if (typeof mouseLocked !== 'undefined' && mouseLocked) lockPointer();
 }
+
+// ======================================================================
+// 3x3 CRAFTING TABLE
+// ======================================================================
+let ctGrid = new Array(9).fill(null); // 9 slots
+let ctOpen = false;
+function openCraftTable() {
+  ctOpen = true;
+  document.getElementById('craft-table-modal').classList.add('show');
+  unlockPointer();
+  renderCraftTable();
+}
+function closeCraftTable() {
+  ctOpen = false;
+  document.getElementById('craft-table-modal').classList.remove('show');
+  // Return items to inventory
+  for (const item of ctGrid) {
+    if (item) addToInventory(item.name, item.count);
+  }
+  ctGrid = new Array(9).fill(null);
+  if (typeof mouseLocked !== 'undefined' && mouseLocked) lockPointer();
+}
+function renderCraftTable() {
+  const grid = document.getElementById('ct-input-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'ct-slot' + (ctGrid[i] ? ' has-item' : '');
+    slot.dataset.idx = i;
+    if (ctGrid[i]) {
+      const ic = document.createElement('canvas');
+      ic.width = 48; ic.height = 48;
+      drawItemIcon(ic.getContext('2d'), ctGrid[i].name, 0, 0, 48);
+      slot.appendChild(ic);
+      const cnt = document.createElement('div');
+      cnt.className = 'item-count';
+      cnt.textContent = 'x' + ctGrid[i].count;
+      slot.appendChild(cnt);
+    }
+    slot.addEventListener('click', () => ctSlotClick(i));
+    slot.addEventListener('contextmenu', (e) => { e.preventDefault(); ctSlotClick(i, true); });
+    grid.appendChild(slot);
+  }
+  // Calculate output
+  const outputSlot = document.getElementById('ct-output-slot');
+  const recipe = matchCraftTableRecipe();
+  outputSlot.innerHTML = '';
+  if (recipe) {
+    const ic = document.createElement('canvas');
+    ic.width = 48; ic.height = 48;
+    drawItemIcon(ic.getContext('2d'), recipe.result.name, 0, 0, 48);
+    outputSlot.appendChild(ic);
+    const cnt = document.createElement('div');
+    cnt.className = 'item-count';
+    cnt.textContent = 'x' + recipe.result.count;
+    outputSlot.appendChild(cnt);
+    outputSlot.style.cursor = 'pointer';
+    outputSlot.style.borderColor = '#7cda24';
+    outputSlot.onclick = () => craftTableOutput(recipe);
+  } else {
+    outputSlot.style.cursor = 'default';
+    outputSlot.style.borderColor = '#fbbf24';
+  }
+}
+function ctSlotClick(idx, isRight = false) {
+  if (isRight) {
+    // Remove 1 from slot
+    if (ctGrid[idx]) {
+      ctGrid[idx].count--;
+      addToInventory(ctGrid[idx].name, 1);
+      if (ctGrid[idx].count <= 0) ctGrid[idx] = null;
+    }
+  } else {
+    // Take from inventory (first stackable)
+    const invItem = inventory.find(it => it.count > 0);
+    if (invItem) {
+      if (ctGrid[idx] && ctGrid[idx].name === invItem.name) {
+        ctGrid[idx].count++;
+      } else if (!ctGrid[idx]) {
+        ctGrid[idx] = { name: invItem.name, count: 1 };
+      } else {
+        return; // slot has different item
+      }
+      removeFromInventory(invItem.name, 1);
+    }
+  }
+  renderCraftTable();
+  updateInventoryUI();
+}
+function matchCraftTableRecipe() {
+  // 3x3 pattern match: shape is a 3x3 array of {item, count}
+  for (const r of getRecipes()) {
+    if (!r.needTable) continue;
+    if (!r.shape) continue; // skip recipes without 3x3 shape
+    // Check if grid matches shape
+    let matches = true;
+    for (let i = 0; i < 9; i++) {
+      const cell = r.shape[i]; // {item, count} or null
+      const cur = ctGrid[i];
+      if (cell) {
+        if (!cur || cur.name !== cell.item || cur.count < cell.count) { matches = false; break; }
+      } else {
+        if (cur) { matches = false; break; }
+      }
+    }
+    if (matches) return r;
+  }
+  return null;
+}
+function craftTableOutput(recipe) {
+  // Consume 1 of each from grid
+  for (let i = 0; i < 9; i++) {
+    if (ctGrid[i] && recipe.shape[i]) {
+      ctGrid[i].count -= recipe.shape[i].count;
+      if (ctGrid[i].count <= 0) ctGrid[i] = null;
+    }
+  }
+  // Add result
+  addToInventory(recipe.result.name, recipe.result.count);
+  toast('✅ คราฟต์ ' + recipe.name + ' สำเร็จ');
+  renderCraftTable();
+  updateInventoryUI();
+}
+function clearCraftTable() {
+  for (const item of ctGrid) {
+    if (item) addToInventory(item.name, item.count);
+  }
+  ctGrid = new Array(9).fill(null);
+  renderCraftTable();
+}
+document.getElementById('ct-clear')?.addEventListener('click', clearCraftTable);
+document.getElementById('craft-table-close')?.addEventListener('click', closeCraftTable);
+
+// ======================================================================
+// CHEST
+// ======================================================================
+let openChestRef = null; // currently open chest
+let chestOpen = false;
+function openChest(x, y, z) {
+  const ch = getChest(x, y, z);
+  openChestRef = ch;
+  chestOpen = true;
+  document.getElementById('chest-modal').classList.add('show');
+  document.getElementById('chest-modal').dataset.cx = x;
+  document.getElementById('chest-modal').dataset.cy = y;
+  document.getElementById('chest-modal').dataset.cz = z;
+  unlockPointer();
+  renderChest();
+}
+function closeChest() {
+  chestOpen = false;
+  // Return items to inventory
+  if (openChestRef) {
+    for (const item of openChestRef.items) {
+      if (item) addToInventory(item.name, item.count);
+    }
+    openChestRef.items = new Array(27).fill(null);
+  }
+  openChestRef = null;
+  document.getElementById('chest-modal').classList.remove('show');
+  if (typeof mouseLocked !== 'undefined' && mouseLocked) lockPointer();
+}
+function renderChest() {
+  const grid = document.getElementById('chest-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 27; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'chest-slot' + (openChestRef.items[i] ? ' has-item' : '');
+    slot.dataset.idx = i;
+    if (openChestRef.items[i]) {
+      const ic = document.createElement('canvas');
+      ic.width = 44; ic.height = 44;
+      drawItemIcon(ic.getContext('2d'), openChestRef.items[i].name, 0, 0, 44);
+      slot.appendChild(ic);
+      const cnt = document.createElement('div');
+      cnt.className = 'item-count';
+      cnt.textContent = 'x' + openChestRef.items[i].count;
+      slot.appendChild(cnt);
+    }
+    slot.addEventListener('click', () => chestSlotClick(i));
+    slot.addEventListener('contextmenu', (e) => { e.preventDefault(); chestSlotClick(i, true); });
+    grid.appendChild(slot);
+  }
+}
+function chestSlotClick(idx, isRight = false) {
+  if (!openChestRef) return;
+  if (isRight) {
+    if (openChestRef.items[idx]) {
+      openChestRef.items[idx].count--;
+      addToInventory(openChestRef.items[idx].name, 1);
+      if (openChestRef.items[idx].count <= 0) openChestRef.items[idx] = null;
+    }
+  } else {
+    const invItem = inventory.find(it => it.count > 0);
+    if (invItem) {
+      if (openChestRef.items[idx] && openChestRef.items[idx].name === invItem.name) {
+        openChestRef.items[idx].count++;
+      } else if (!openChestRef.items[idx]) {
+        openChestRef.items[idx] = { name: invItem.name, count: 1 };
+      } else return;
+      removeFromInventory(invItem.name, 1);
+    }
+  }
+  renderChest();
+  updateInventoryUI();
+  // Broadcast chest update to other players in MP
+  if (mp.connected && mp.isHost) {
+    sendMP({ type: 'chest_update', x: openChestRef.x, y: openChestRef.y, z: openChestRef.z, items: openChestRef.items });
+  }
+}
+document.getElementById('chest-close')?.addEventListener('click', closeChest);
 
 // ======================================================================
 // BLOCK BREAK REWARDS (drop items)
@@ -4693,6 +5091,14 @@ function handleMPMessage(msg) {
       }
     }
   }
+  else if (t === 'chest_update') {
+    // Update chest from MP sync
+    const k = chestKey(msg.x, msg.y, msg.z);
+    chests.set(k, { items: msg.items, x: msg.x, y: msg.y, z: msg.z });
+    if (openChestRef && openChestRef.x === msg.x && openChestRef.y === msg.y && openChestRef.z === msg.z) {
+      renderChest();
+    }
+  }
   else if (t === 'block_change') {
     // Apply remote block change
     if (inBounds(msg.x, msg.y, msg.z)) {
@@ -4729,12 +5135,32 @@ function applyWorldState(w, seed) {
   } else {
     generateWorld(currentSeed);
   }
+  // Restore chests
+  if (w.chests) {
+    chests.clear();
+    for (const [k, items] of Object.entries(w.chests)) {
+      chests.set(k, { items, x: 0, y: 0, z: 0 }); // pos will be derived from key
+      const [cx, cy, cz] = k.split('_').map(Number);
+      chests.get(k).x = cx;
+      chests.get(k).y = cy;
+      chests.get(k).z = cz;
+    }
+  } else {
+    chests.clear();
+  }
   meshRebuildNeeded = true;
 }
 
 function shareWorldState() {
   if (!mp.connected || !mp.isHost) return;
-  sendMP({ type: 'world_state', world: { W, D, H, array: Array.from(world) }, seed: currentSeed });
+  // Serialize chests (key -> items)
+  const chestData = {};
+  for (const [k, ch] of chests.entries()) {
+    if (ch.items.some(it => it !== null)) {
+      chestData[k] = ch.items;
+    }
+  }
+  sendMP({ type: 'world_state', world: { W, D, H, array: Array.from(world), chests: chestData }, seed: currentSeed });
 }
 
 function sendMP(msg) {
