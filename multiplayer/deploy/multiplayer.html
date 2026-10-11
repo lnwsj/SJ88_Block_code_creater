@@ -238,6 +238,13 @@
   .code-block .code-param.sel{cursor:pointer;appearance:none;-webkit-appearance:none;padding-right:18px;background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path fill="%23222" d="M0 0l5 6 5-6z"/></svg>');background-repeat:no-repeat;background-position:right 6px center}
   .code-block-del{background:rgba(0,0,0,.3);color:#fff;border:0;width:20px;height:20px;border-radius:50%;cursor:pointer;font-size:11px;margin-left:auto;transition:all .15s;display:flex;align-items:center;justify-content:center;line-height:1;padding:0}
   .code-block-del:hover{background:#ef4444;transform:scale(1.15);box-shadow:0 2px 6px rgba(239,68,68,.4)}
+  .code-block-dup{background:rgba(0,0,0,.3);color:#fff;border:0;width:20px;height:20px;border-radius:50%;cursor:pointer;font-size:10px;margin-left:4px;transition:all .15s;display:flex;align-items:center;justify-content:center;line-height:1;padding:0}
+  .code-block-dup:hover{background:#4a9eff;transform:scale(1.15)}
+  .code-btn-undo{background:linear-gradient(180deg,#8a8a9a,#6a6a7a);color:#fff;box-shadow:0 2px 0 #4a4a5a}
+  .code-btn-undo:hover{background:linear-gradient(180deg,#9a9aaa,#7a7a8a)}
+  .code-btn-undo:disabled{opacity:.35;cursor:default;transform:none;box-shadow:0 2px 0 #4a4a5a}
+  .code-block-row.drop-after{outline:2px dashed #f59e0b;outline-offset:2px}
+  .code-block-children.drop-into{background:rgba(124,218,36,.12);border-color:rgba(124,218,36,.5);border-style:solid}
   /* Children container (C-block contents) */
   .code-block-children{border-left:3px solid rgba(255,255,255,.15);margin:6px 0 6px 18px;padding:6px 0 6px 10px;display:flex;flex-direction:column;gap:0;min-height:14px;position:relative}
   .code-block-children::before{content:'';position:absolute;left:-3px;top:0;bottom:0;width:3px;background:linear-gradient(180deg,rgba(255,255,255,.2),rgba(255,255,255,.05))}
@@ -2740,8 +2747,11 @@ function loop(t) {
     if (Math.random() < dt * 0.5) checkAchievements();
   }
 
+  updateParticles(dt);
+
   render();
   renderMobs();            // mobs in 3D (previously minimap-only)
+  renderParticles();       // block-break particles
   renderRemotePlayers();   // remote players + agent + bots + name labels
 
   if (mp.connected && mp.roomCode) sendMoveThrottled();
@@ -4305,6 +4315,19 @@ const mmCtx = mmCanvas.getContext('2d');
 const MM_SIZE = 120;
 const MM_SCALE = 4; // each pixel = 4 blocks
 let minimapMode = 0; // 0=top-down, 1=angled
+
+// Per-block flat colors (minimap + break particles)
+const BLOCK_COLORS = {
+  [B.GRASS]: '#5fb02a', [B.DIRT]: '#8c6438', [B.STONE]: '#909098', [B.SAND]: '#e8d090',
+  [B.WOOD]: '#6a4820', [B.LEAVES]: '#3a8a25', [B.PLANKS]: '#c8a065', [B.COBBLE]: '#7a7a82',
+  [B.BEDROCK]: '#404048', [B.SNOW]: '#fafaff', [B.BRICK]: '#a04028', [B.PUMPKIN]: '#ec8424',
+  [B.WATER]: '#3060c0', [B.GLASS]: '#a0c0e0', [B.ICE]: '#9cc0d8', [B.SANDSTONE]: '#d4b870',
+  [B.CACTUS]: '#3a8a25', [B.ORE_COAL]: '#404048', [B.ORE_IRON]: '#a08878',
+  [B.ORE_GOLD]: '#d4b030', [B.ORE_DIAMOND]: '#40c0d0', [B.GLOWSTONE]: '#f0c850',
+  [B.CRAFTING_TABLE]: '#9c6a30', [B.DOOR]: '#8c5a2c', [B.TORCH]: '#ffd800',
+  [B.CHEST]: '#a06830', [B.FURNACE]: '#7a7a82', [B.FLOWER]: '#ec5cd0', [B.SAPLING]: '#3a8a25',
+};
+
 function drawMinimap() {
   mmCtx.fillStyle = '#000';
   mmCtx.fillRect(0, 0, MM_SIZE, MM_SIZE);
@@ -4312,16 +4335,7 @@ function drawMinimap() {
   const px = Math.floor(player.x), pz = Math.floor(player.z);
   const half = Math.floor(MM_SIZE / 2);
   const heightLevel = Math.floor(player.y);
-  // colors per block
-  const blockColors = {
-    [B.GRASS]: '#5fb02a', [B.DIRT]: '#8c6438', [B.STONE]: '#909098', [B.SAND]: '#e8d090',
-    [B.WOOD]: '#6a4820', [B.LEAVES]: '#3a8a25', [B.PLANKS]: '#c8a065', [B.COBBLE]: '#7a7a82',
-    [B.BEDROCK]: '#404048', [B.SNOW]: '#fafaff', [B.BRICK]: '#a04028', [B.PUMPKIN]: '#ec8424',
-    [B.WATER]: '#3060c0', [B.GLASS]: '#a0c0e0', [B.ICE]: '#9cc0d8', [B.SANDSTONE]: '#d4b870',
-    [B.CACTUS]: '#3a8a25', [B.ORE_COAL]: '#404048', [B.ORE_IRON]: '#a08878',
-    [B.ORE_GOLD]: '#d4b030', [B.ORE_DIAMOND]: '#40c0d0', [B.GLOWSTONE]: '#f0c850',
-    [B.CRAFTING_TABLE]: '#9c6a30', [B.DOOR]: '#8c5a2c', [B.TORCH]: '#ffd800',
-  };
+  const blockColors = BLOCK_COLORS;
   for (let dy = 0; dy < MM_SIZE; dy++) {
     for (let dx = 0; dx < MM_SIZE; dx++) {
       const wx = px + (dx - half) * MM_SCALE;
@@ -4852,6 +4866,53 @@ function renderMobs() {
     }
     const mvp = mat4Mult(getCurrentProjView(), mat4Translate(m.x - m.w / 2, m.y, m.z - m.w / 2));
     drawPlayerMesh(cached.glBuf, cached.meshData, mvp);
+  }
+}
+
+// ======================================================================
+// PARTICLES (block-break juice — also the addParticles() the agent's
+// breakFront() has been calling all along; it used to not exist, which
+// crashed bot scripts on the first block break)
+// ======================================================================
+const particles = []; // {x,y,z, vx,vy,vz, life, meshData}
+let _particleVerts = null, _particleGlBuf = null;
+function addParticles(x, y, z, colorHex, count = 8) {
+  const hex = /^#[0-9a-fA-F]{6}$/.test(String(colorHex || '')) ? colorHex : '#cccccc';
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  for (let i = 0; i < count; i++) {
+    if (particles.length >= 200) particles.shift();
+    particles.push({
+      x, y, z,
+      vx: (Math.random() - 0.5) * 3.5,
+      vy: Math.random() * 4 + 1.5,
+      vz: (Math.random() - 0.5) * 3.5,
+      life: 0.5 + Math.random() * 0.5,
+      meshData: { color: [r, g, b], vertices: null }, // filled lazily in render
+    });
+  }
+}
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.vy += CFG.GRAVITY * 0.6 * dt;
+    p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+    p.life -= dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+function renderParticles() {
+  if (particles.length === 0) return;
+  if (!_particleVerts) {
+    _particleVerts = makeBoxVerts(0.14, 0.14);
+    _particleGlBuf = createGlBufferFor({ vertices: _particleVerts });
+  }
+  const pv = getCurrentProjView();
+  for (const p of particles) {
+    if (!p.meshData.vertices) p.meshData.vertices = _particleVerts;
+    const mvp = mat4Mult(pv, mat4Translate(p.x - 0.07, p.y, p.z - 0.07));
+    drawPlayerMesh(_particleGlBuf, p.meshData, mvp);
   }
 }
 
@@ -5544,6 +5605,13 @@ function sendChat() {
   if (!input || !input.value.trim()) return;
   const msg = input.value.trim();
   input.value = '';
+  // "/command" runs the matching on_chat script from the Block Editor
+  if (msg.startsWith('/')) {
+    const cmd = msg.slice(1).split(/\s+/)[0];
+    triggerChatScript(cmd);
+    addChat('🧩 Script', '▶ รันคำสั่ง /' + cmd, '#f59e0b');
+    return;
+  }
   sendMP({ type: 'chat', name: mp.myName, msg, color: mp.myColor });
   addChat(mp.myName, msg, mp.myColor);
 }
@@ -5658,6 +5726,7 @@ breakBlock = function() {
   if (b === B.BEDROCK) { toast('⛏ หินฐานทุบไม่ได้'); return; }
   setBlock(r.x, r.y, r.z, B.AIR); // marks the affected chunks dirty
   dropBlock(b);
+  addParticles(r.x + 0.5, r.y + 0.5, r.z + 0.5, BLOCK_COLORS[b] || '#cccccc', 10);
   // Breaking a chest returns its contents to the inventory
   if (b === B.CHEST) {
     const k = chestKey(r.x, r.y, r.z);
@@ -5874,7 +5943,7 @@ const BLOCK_DEFS = {
   // Hat blocks (event handlers)
   on_start: { kind: 'hat', category: 'events', label: '🏁 เมื่อเริ่ม', params: [] },
   on_chat: { kind: 'hat', category: 'events', label: '💬 เมื่อพูด', params: [{ name: 'command', type: 'string', default: 'go' }] },
-  on_key: { kind: 'hat', category: 'events', label: '⌨ เมื่อกด', params: [{ name: 'key', type: 'select', options: ['w','a','s','d','space'], default: 'w' }] },
+  on_key: { kind: 'hat', category: 'events', label: '⌨ เมื่อกด', params: [{ name: 'key', type: 'select', options: ['w','a','s','d','space','up','down','left','right'], default: 'w' }] },
 
   // Motion
   walk: { kind: 'stack', category: 'motion', label: '🚶 เดิน', params: [
@@ -5895,10 +5964,27 @@ const BLOCK_DEFS = {
     { name: 'block', type: 'select_block', default: 1 /* GRASS */ },
   ]},
   say: { kind: 'stack', category: 'action', label: '💬 พูด', params: [{ name: 'text', type: 'string', default: 'Hello!' }]},
-  spawn: { kind: 'stack', category: 'action', label: '🌀 เกิดที่', params: [
+  // Coordinates below are RELATIVE to the player's position when the script
+  // runs: (0,0,0) = the player's feet, +y = up.
+  spawn: { kind: 'stack', category: 'action', label: '🌀 เกิดที่ (สัมพัทธ์)', params: [
     { name: 'x', type: 'number', default: 0, min: -50, max: 50 },
-    { name: 'y', type: 'number', default: 30, min: 0, max: 60 },
+    { name: 'y', type: 'number', default: 0, min: -20, max: 30 },
     { name: 'z', type: 'number', default: 0, min: -50, max: 50 },
+  ]},
+  place_at: { kind: 'stack', category: 'action', label: '🎯 วางที่ (สัมพัทธ์)', params: [
+    { name: 'x', type: 'number', default: 0, min: -50, max: 50 },
+    { name: 'y', type: 'number', default: 0, min: -20, max: 30 },
+    { name: 'z', type: 'number', default: 0, min: -50, max: 50 },
+    { name: 'block', type: 'select_block', default: 1 },
+  ]},
+  fill: { kind: 'stack', category: 'action', label: '🧱 เติมพื้นที่', params: [
+    { name: 'x1', type: 'number', default: 0, min: -50, max: 50 },
+    { name: 'y1', type: 'number', default: 0, min: -20, max: 30 },
+    { name: 'z1', type: 'number', default: 0, min: -50, max: 50 },
+    { name: 'x2', type: 'number', default: 3, min: -50, max: 50 },
+    { name: 'y2', type: 'number', default: 0, min: -20, max: 30 },
+    { name: 'z2', type: 'number', default: 3, min: -50, max: 50 },
+    { name: 'block', type: 'select_block', default: 8 },
   ]},
 
   // Control
@@ -5907,6 +5993,9 @@ const BLOCK_DEFS = {
     { name: 'condition', type: 'select', options: ['block_ahead','ground_below','is_day','is_night'], default: 'block_ahead' },
   ], hasChildren: true },
   wait: { kind: 'stack', category: 'control', label: '⏱ รอ', params: [{ name: 'seconds', type: 'number', default: 1, min: 0.1, max: 10 }]},
+  while_block: { kind: 'c', category: 'control', label: '🔁 ทำซ้ำเมื่อ', params: [
+    { name: 'condition', type: 'select', options: ['block_ahead','ground_below','is_day','is_night'], default: 'block_ahead' },
+  ], hasChildren: true },
 
   // Variables
   set_var: { kind: 'stack', category: 'vars', label: '💜 ตั้งค่า', params: [
@@ -6033,19 +6122,49 @@ class Agent {
     if (by < 0 || by >= H) return;
     const blk = getBlock(bx, by, bz);
     if (blk === B.AIR) return;
-    setBlock(bx, by, bz, B.AIR);
-    meshRebuildNeeded = true;
+    setBlock(bx, by, bz, B.AIR); // marks the affected chunks dirty
     playSound('break');
-    addParticles(bx + 0.5, by + 0.5, bz + 0.5, BLOCK_COLORS[blk] || '#fff', 8);
+    addParticles(bx + 0.5, by + 0.5, bz + 0.5, BLOCK_COLORS[blk] || '#ffffff', 8);
   }
-  
+
   async placeFront(blockId) {
     const [bx, by, bz] = this.getForwardPos();
     if (by < 0 || by >= H) return;
     if (getBlock(bx, by, bz) !== B.AIR) return;
-    setBlock(bx, by, bz, blockId);
-    meshRebuildNeeded = true;
+    setBlock(bx, by, bz, blockId); // marks the affected chunks dirty
     playSound('place');
+  }
+
+  // Place a block at ABSOLUTE world coords (Executor converts relative→absolute)
+  async placeAt(x, y, z, blockId) {
+    const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z);
+    if (!inBounds(bx, by, bz)) return;
+    setBlock(bx, by, bz, blockId);
+    playSound('place');
+    addParticles(bx + 0.5, by + 0.5, bz + 0.5, BLOCK_COLORS[blockId] || '#ffffff', 4);
+  }
+
+  // Fill a rectangular region (ABSOLUTE coords). Volume capped for safety.
+  async fillRegion(x1, y1, z1, x2, y2, z2, blockId) {
+    const ax = Math.min(x1, x2) | 0, bx2 = Math.max(x1, x2) | 0;
+    const ay = Math.min(y1, y2) | 0, by2 = Math.max(y1, y2) | 0;
+    const az = Math.min(z1, z2) | 0, bz2 = Math.max(z1, z2) | 0;
+    const vol = (bx2 - ax + 1) * (by2 - ay + 1) * (bz2 - az + 1);
+    if (vol > 8000) {
+      await this.say(`⚠️ เติมได้สูงสุด 8000 บล็อก (ต้องการ ${vol})`);
+      return;
+    }
+    let n = 0;
+    for (let y = ay; y <= by2; y++) {
+      for (let z = az; z <= bz2; z++) {
+        for (let x = ax; x <= bx2; x++) {
+          if (!inBounds(x, y, z)) continue;
+          if (world[idx(x, y, z)] !== blockId) { setBlock(x, y, z, blockId); n++; }
+        }
+      }
+    }
+    playSound('place');
+    await this.say(`🧱 เติม ${n} บล็อก`);
   }
   
   async say(text) {
@@ -6084,6 +6203,8 @@ class Executor {
   constructor(agent) {
     this.agent = agent;
     this.vars = {};
+    this.origin = { x: 0, y: 0, z: 0 }; // set at Run: player's block position.
+    // All x/y/z in spawn/place_at/fill are relative to this origin.
     this.running = true; // start running by default
     this.handles = new Map(); // hat block id -> running script
   }
@@ -6153,10 +6274,29 @@ class Executor {
           await this.agent.say(block.params.text);
           await this.execBlock(block.next);
           break;
-        case 'spawn':
-          await this.agent.spawn(block.params.x, block.params.y, block.params.z);
+        case 'spawn': {
+          // Relative → absolute: (0,0,0) = player's feet at Run time
+          const o = this.origin;
+          await this.agent.spawn(o.x + block.params.x + 0.5, o.y + block.params.y, o.z + block.params.z + 0.5);
           await this.execBlock(block.next);
           break;
+        }
+        case 'place_at': {
+          const o = this.origin;
+          await this.agent.placeAt(o.x + block.params.x, o.y + block.params.y, o.z + block.params.z, block.params.block);
+          await sleep(20);
+          await this.execBlock(block.next);
+          break;
+        }
+        case 'fill': {
+          const o = this.origin;
+          await this.agent.fillRegion(
+            o.x + block.params.x1, o.y + block.params.y1, o.z + block.params.z1,
+            o.x + block.params.x2, o.y + block.params.y2, o.z + block.params.z2,
+            block.params.block);
+          await this.execBlock(block.next);
+          break;
+        }
         case 'repeat': {
           for (let i = 0; i < block.params.count && this.running; i++) {
             for (const child of (block.children || [])) {
@@ -6174,6 +6314,19 @@ class Executor {
               if (!this.running) return;
             }
           }
+          await this.execBlock(block.next);
+          break;
+        }
+        case 'while_block': {
+          // Guard cap keeps a never-true-exit loop from freezing the game
+          let guard = 0;
+          while (this.running && guard++ < 200 && this.agent.checkCondition(block.params.condition)) {
+            for (const child of (block.children || [])) {
+              await this.execBlock(child);
+              if (!this.running) return;
+            }
+          }
+          if (guard >= 200) this.agent.say('⚠️ ลูปเกิน 200 รอบ — หยุดกันค้าง');
           await this.execBlock(block.next);
           break;
         }
@@ -6290,9 +6443,9 @@ function renderBlockPreview(type, def) {
 function renderParamInput(blockType, p, params) {
   const val = params[p.name] !== undefined ? params[p.name] : p.default;
   if (p.type === 'number') {
-    return `<input class="code-param num" type="number" value="${val}" min="${p.min||0}" max="${p.max||9999}" data-block="${blockType}" data-param="${p.name}" />`;
+    return `<input class="code-param num" type="number" title="${p.name}" value="${val}" min="${p.min||0}" max="${p.max||9999}" data-block="${blockType}" data-param="${p.name}" />`;
   } else if (p.type === 'string') {
-    return `<input class="code-param str" type="text" value="${val}" data-block="${blockType}" data-param="${p.name}" />`;
+    return `<input class="code-param str" type="text" title="${p.name}" value="${escapeHTML(String(val))}" data-block="${blockType}" data-param="${p.name}" />`;
   } else if (p.type === 'select') {
     let opts = p.options.map(o => `<option value="${o}" ${o===val?'selected':''}>${o}</option>`).join('');
     return `<select class="code-param sel" data-block="${blockType}" data-param="${p.name}">${opts}</select>`;
@@ -6351,6 +6504,7 @@ function renderScripts() {
   }
   // Bottom action bar
   html += `<div class="code-bottom-bar">
+    <button class="code-btn code-btn-undo" id="code-undo" title="Ctrl+Z">↩ Undo</button>
     <button class="code-btn code-btn-export" id="code-export-all">📤 Export ทั้งหมด</button>
     <button class="code-btn code-btn-import" id="code-import-btn">📥 Import</button>
     <button class="code-btn code-btn-clear" id="code-clear-all">🗑 ลบทั้งหมด</button>
@@ -6361,7 +6515,41 @@ function renderScripts() {
     b.addEventListener('click', e => {
       e.stopPropagation();
       const idx = parseInt(b.dataset.idx);
+      pushUndo();
       savedScripts.splice(idx, 1);
+      saveScripts();
+      renderScripts();
+    });
+  });
+  // Per-block delete (the ✕ button — previously never wired!). Hat block = delete whole script.
+  wrap.querySelectorAll('.code-block-del').forEach(b => {
+    b.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = b.dataset.blockId;
+      const sIdx = savedScripts.findIndex(s => s.id === id);
+      pushUndo();
+      if (sIdx >= 0) {
+        savedScripts.splice(sIdx, 1);
+      } else {
+        for (const s of savedScripts) if (removeBlockNode(s, id)) break;
+      }
+      saveScripts();
+      renderScripts();
+    });
+  });
+  // Duplicate a block (with its nested children, without the rest of the chain)
+  wrap.querySelectorAll('.code-block-dup').forEach(b => {
+    b.addEventListener('click', e => {
+      e.stopPropagation();
+      const target = findBlockById(savedScripts, b.dataset.blockId);
+      if (!target) return;
+      const copy = JSON.parse(JSON.stringify(cleanBlockForExport(target)));
+      copy.next = null;
+      reassignIds(copy);
+      pushUndo();
+      if (BLOCK_DEFS[target.type].kind === 'hat' || !insertAfterBlock(target, copy)) {
+        savedScripts.push(copy);
+      }
       saveScripts();
       renderScripts();
     });
@@ -6393,6 +6581,7 @@ function renderScripts() {
   wrap.querySelectorAll('.code-add-hat').forEach(b => {
     b.addEventListener('click', () => {
       const type = b.dataset.hat;
+      pushUndo();
       savedScripts.push({ id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), type, params: paramDefaults(BLOCK_DEFS[type]), next: null, children: null });
       saveScripts();
       renderScripts();
@@ -6408,6 +6597,7 @@ function renderScripts() {
       if (!block) return;
       let val = el.value;
       if (el.classList.contains('num')) val = parseFloat(val) || 0;
+      pushUndo();
       if (block.params) block.params[param] = val;
       saveScripts();
     });
@@ -6441,6 +6631,8 @@ function renderScripts() {
     currentFocus = null;
     renderScripts();
   });
+  // Keep the undo button's disabled state in sync
+  updateUndoBtn();
 }
 
 function findScriptOfBlock(scripts, block) {
@@ -6525,17 +6717,18 @@ function renderBlockNode(block, isLast = false) {
       html += renderParamInput(block.type, p, block.params);
     }
   }
+  html += `<button class="code-block-dup" data-block-id="${block.id}" title="ทำซ้ำบล็อกนี้ (พร้อมของข้างใน)">⧉</button>`;
   html += `<button class="code-block-del" data-block-id="${block.id}" title="ลบบล็อก">✕</button>`;
   html += `</div>`;
   if (def.hasChildren) {
     html += `</div>`; // close code-cblock-head
     html += `<div class="code-block-children" data-parent-id="${block.id}">`;
     if (block.children && block.children.length) {
-      for (let i = 0; i < block.children.length; i++) {
-        const c = block.children[i];
-        const cDef = BLOCK_DEFS[c.type];
-        const cIsLast = i === block.children.length - 1 && !c.next;
-        html += renderBlockNode(c, cIsLast && (!cDef || !cDef.hasChildren));
+      // Render each child's FULL next-chain — imported/AI scripts chain blocks
+      // inside children, and previously only the first block of each chain
+      // was visible in the editor.
+      for (const c of block.children) {
+        html += renderBlockTree(c);
       }
     } else {
       html += `<div class="code-block-empty">${isFocused ? '👆 คลิกบล็อกใน palette ด้านซ้าย เพื่อเพิ่มที่นี่' : '⌨ คลิกที่บล็อกด้านบนเพื่อเพิ่มข้างใน'}</div>`;
@@ -6546,10 +6739,67 @@ function renderBlockNode(block, isLast = false) {
   return html;
 }
 
+// ---- Undo + block-tree helpers ----
+const UNDO_MAX = 50;
+let undoStack = [];
+function genBlockId() {
+  return 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+}
+function pushUndo() {
+  try {
+    undoStack.push(JSON.stringify(savedScripts, (k, v) => (k === '__idx' ? undefined : v)));
+    if (undoStack.length > UNDO_MAX) undoStack.shift();
+  } catch (e) {}
+  updateUndoBtn();
+}
+function undoScripts() {
+  if (undoStack.length === 0) { toast('⚠ ไม่มีอะไรให้ undo แล้ว'); return; }
+  savedScripts = JSON.parse(undoStack.pop());
+  currentFocus = null;
+  saveScripts();
+  renderScripts();
+  updateUndoBtn();
+}
+function updateUndoBtn() {
+  const b = document.getElementById('code-undo');
+  if (b) b.disabled = undoStack.length === 0;
+}
+// Insert `node` right after `target` in whatever chain/array holds it.
+// Returns false when target is a script root (hat) — caller decides.
+function insertAfterBlock(target, node) {
+  const walk = (blk) => {
+    if (!blk) return false;
+    if (blk.next === target) { node.next = target.next; target.next = node; return true; }
+    if (Array.isArray(blk.children)) {
+      const i = blk.children.indexOf(target);
+      if (i >= 0) { blk.children.splice(i + 1, 0, node); return true; }
+      for (const c of blk.children) if (walk(c)) return true;
+    }
+    return walk(blk.next);
+  };
+  for (const s of savedScripts) if (walk(s)) return true;
+  return false;
+}
+// Detach a block by id from a script tree (hat blocks handled by the caller)
+function removeBlockNode(block, targetId) {
+  if (block.next) {
+    if (block.next.id === targetId) { block.next = block.next.next; return true; }
+    if (removeBlockNode(block.next, targetId)) return true;
+  }
+  if (Array.isArray(block.children)) {
+    for (let i = 0; i < block.children.length; i++) {
+      if (block.children[i].id === targetId) { block.children.splice(i, 1); return true; }
+      if (removeBlockNode(block.children[i], targetId)) return true;
+    }
+  }
+  return false;
+}
+
 // Add a new block under the currently focused script (or as next of last)
 function addBlockToCurrent(type) {
   const def = BLOCK_DEFS[type];
   if (!def) return;
+  pushUndo();
   if (def.kind === 'hat') {
     // New script
     savedScripts.push({ id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), type, params: paramDefaults(def), next: null, children: null });
@@ -6635,6 +6885,7 @@ function importScripts(jsonStr, mode = 'merge') {
     toast('❌ ไม่พบ scripts array');
     return false;
   }
+  pushUndo();
   if (mode === 'replace') {
     savedScripts = [];
   }
@@ -6688,6 +6939,10 @@ function runProgram() {
   agent.visible = true;
   agent.active = true;
   executor = new Executor(agent);
+  // All script coordinates are relative to where the player stands at Run
+  executor.origin = {
+    x: Math.floor(player.x), y: Math.floor(player.y), z: Math.floor(player.z),
+  };
   executor.scripts = savedScripts;
   // Process hat blocks: on_start → run immediately, on_chat/on_key → register
   for (const s of savedScripts) {
@@ -6760,6 +7015,18 @@ function triggerKeyScript(key) {
   }
 }
 
+// on_key scripts fire on discrete key presses (repeat-filtered). Arrow keys
+// are offered as trigger keys because WASD double as movement.
+document.addEventListener('keydown', (e) => {
+  if (e.repeat || !isGameActive()) return;
+  const map = {
+    KeyW: 'w', KeyA: 'a', KeyS: 's', KeyD: 'd', Space: 'space',
+    ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+  };
+  const k = map[e.code];
+  if (k) triggerKeyScript(k);
+});
+
 // Render agent (called from renderRemotePlayers) - implemented below
 
 // Hook up UI
@@ -6831,11 +7098,84 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('code-clear-all')?.addEventListener('click', () => {
     if (!confirm('ลบ scripts ทั้งหมด?')) return;
+    pushUndo();
     savedScripts = [];
     saveScripts();
     renderScripts();
     toast('🗑 ลบ scripts ทั้งหมด');
   });
+  // Undo button + Ctrl/Cmd+Z while the editor is open
+  document.getElementById('code-undo')?.addEventListener('click', undoScripts);
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' &&
+        document.getElementById('code-modal')?.classList.contains('show')) {
+      e.preventDefault();
+      undoScripts();
+    }
+  });
+  // Drag & drop: palette → workspace. Dropping ON a block inserts after it
+  // (or into a C-block's children zone); dropping on empty space appends.
+  const paletteEl = document.getElementById('code-blocks-list');
+  const scriptsEl = document.getElementById('code-scripts');
+  if (paletteEl && scriptsEl) {
+    paletteEl.addEventListener('dragstart', (e) => {
+      const el = e.target.closest('.code-pal-block');
+      if (!el) return;
+      e.dataTransfer.setData('text/blocktype', el.dataset.type);
+      e.dataTransfer.effectAllowed = 'copy';
+    });
+    const clearDropHints = () =>
+      scriptsEl.querySelectorAll('.drop-after,.drop-into').forEach(el => el.classList.remove('drop-after', 'drop-into'));
+    scriptsEl.addEventListener('dragover', (e) => {
+      if (!Array.from(e.dataTransfer.types).includes('text/blocktype')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      clearDropHints();
+      const childZone = e.target.closest('.code-block-children');
+      const row = e.target.closest('.code-block-row');
+      if (childZone) childZone.classList.add('drop-into');
+      else if (row) row.classList.add('drop-after');
+    });
+    scriptsEl.addEventListener('dragleave', (e) => { if (e.target === scriptsEl) clearDropHints(); });
+    scriptsEl.addEventListener('drop', (e) => {
+      const type = e.dataTransfer.getData('text/blocktype');
+      clearDropHints();
+      if (!type || !BLOCK_DEFS[type]) return;
+      e.preventDefault();
+      const def = BLOCK_DEFS[type];
+      const node = { id: genBlockId(), type, params: paramDefaults(def), next: null, children: def.hasChildren ? [] : null };
+      const childZone = e.target.closest('.code-block-children');
+      const row = e.target.closest('.code-block-row');
+      if (childZone) {
+        const parent = findBlockById(savedScripts, childZone.dataset.parentId);
+        if (parent) {
+          pushUndo();
+          if (!Array.isArray(parent.children)) parent.children = [];
+          parent.children.push(node);
+          currentFocus = parent;
+          saveScripts(); renderScripts();
+          return;
+        }
+      }
+      if (row) {
+        const target = findBlockById(savedScripts, row.dataset.blockId);
+        if (target) {
+          pushUndo();
+          if (BLOCK_DEFS[target.type].kind === 'hat' || !insertAfterBlock(target, node)) {
+            // Hat block (or not found in any chain): append to its chain end
+            let last = target;
+            while (last.next) last = last.next;
+            last.next = node;
+          }
+          saveScripts(); renderScripts();
+          return;
+        }
+      }
+      // Dropped on empty space → behave like a palette click (append)
+      addBlockToCurrent(type);
+    });
+    paletteEl.addEventListener('dragend', clearDropHints);
+  }
 });
 
 async function importScriptsFromUrl(url, mode) {
@@ -6855,6 +7195,7 @@ async function importScriptsFromUrl(url, mode) {
 }
 
 function loadSampleProgram() {
+  pushUndo();
   savedScripts = [
     {
       id: 'b_sample_1',
@@ -6863,7 +7204,7 @@ function loadSampleProgram() {
       next: {
         id: 'b_sample_2',
         type: 'spawn',
-        params: { x: 0, y: 30, z: 0 },
+        params: { x: 0, y: 0, z: 0 },
         next: {
           id: 'b_sample_3',
           type: 'say',
@@ -6921,77 +7262,37 @@ const LOCAL_AI_PATTERNS = [
     defaults: { size: 5, block: 8, withRoof: true, withDoor: true, withWindows: true },
     build(p, ctx) {
       const s = p.size, blk = p.block;
-      const blocks = [
-        { type: 'spawn', params: { x: 0, y: 30, z: 0 } },
-        { type: 'say', params: { text: `🏠 กำลังสร้างบ้าน ${s}x${s} จาก${ctx.blockNames[blk] || 'หิน'}` } },
-      ];
-      // Build 4 walls
-      const wallBlocks = [];
-      for (let y = 0; y < 3; y++) {
-        for (let i = 0; i < s; i++) {
-          // front wall (with door in middle if y < 2)
-          const isDoor = p.withDoor && y < 2 && i === Math.floor(s/2);
-          wallBlocks.push({ x: i, y, z: 0, skip: isDoor });
-          // back wall
-          wallBlocks.push({ x: i, y, z: s-1 });
-          // left wall
-          wallBlocks.push({ x: 0, y, z: i, skip: isDoor && y === 0 && i === Math.floor(s/2) });
-          // right wall
-          wallBlocks.push({ x: s-1, y, z: i });
-        }
-      }
-      // Convert to script blocks
-      let firstAction = true;
-      for (const wb of wallBlocks) {
-        if (wb.skip) continue;
-        // For simplicity: turn then walk then place (not optimal but works)
-        // Better: use spawn + relative movement
-        // We'll use a simple approach: face north, place blocks
-        // Actually let's just do: spawn → for each block, set position manually
-      }
-      // Simpler approach: use a single block placement strategy
-      // The agent places blocks by walking around - but coordinate precision is hard
-      // Better: use spawn commands to teleport then place
+      const mid = Math.floor(s / 2);
+      // Compact build with RELATIVE coords + fill: (0,0,0) = player's feet.
       const script = {
         type: 'on_start', params: {},
-        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+        next: { type: 'say', params: { text: `🏠 กำลังสร้างบ้าน ${s}x${s} จาก${ctx.blockNames[blk] || 'หิน'}` }, next: null, children: null }
       };
       let last = script.next;
-      // Say
-      last.next = { type: 'say', params: { text: 'กำลังสร้าง...' }, next: null, children: null };
-      last = last.next;
-      // Place walls
+      const push = (type, params) => {
+        last.next = { type, params, next: null, children: null };
+        last = last.next;
+      };
+      // 4 walls row by row (front wall at z = s-1, split around the door gap)
       for (let y = 0; y < 3; y++) {
-        for (let i = 0; i < s; i++) {
-          for (const wallPos of [
-            { x: i, y, z: 0 }, { x: i, y, z: s-1 },
-            { x: 0, y, z: i }, { x: s-1, y, z: i }
-          ]) {
-            const skip = (p.withDoor && y < 2 && ((wallPos.z === 0 && wallPos.x === Math.floor(s/2)) || (wallPos.x === 0 && wallPos.z === Math.floor(s/2))));
-            if (skip) continue;
-            last.next = { type: 'spawn', params: { x: wallPos.x, y, z: wallPos.z }, next: null, children: null };
-            last = last.next;
-            last.next = { type: 'place', params: { block: blk }, next: null, children: null };
-            last = last.next;
-            // windows in middle row
-            if (p.withWindows && y === 1 && (wallPos.x === 1 || wallPos.x === s-2 || wallPos.z === 1 || wallPos.z === s-2)) {
-              // already placed wall, can override
-            }
-          }
-        }
+        push('fill', { x1: 0, y1: y, z1: 0, x2: s - 1, y2: y, z2: 0, block: blk });         // back
+        push('fill', { x1: 0, y1: y, z1: 1, x2: 0, y2: y, z2: s - 1, block: blk });         // left
+        push('fill', { x1: s - 1, y1: y, z1: 1, x2: s - 1, y2: y, z2: s - 1, block: blk }); // right
+        push('fill', { x1: 1, y1: y, z1: s - 1, x2: mid - 1, y2: y, z2: s - 1, block: blk });   // front (left of door)
+        push('fill', { x1: mid + 1, y1: y, z1: s - 1, x2: s - 1, y2: y, z2: s - 1, block: blk }); // front (right of door)
+        if (!p.withDoor || y >= 2) push('fill', { x1: mid, y1: y, z1: s - 1, x2: mid, y2: y, z2: s - 1, block: blk }); // above door
       }
-      // Roof
+      // Windows (glass) in the middle row
+      if (p.withWindows) {
+        push('place_at', { x: mid, y: 1, z: 0, block: 14 });
+        push('place_at', { x: 0, y: 1, z: mid, block: 14 });
+        push('place_at', { x: s - 1, y: 1, z: mid, block: 14 });
+      }
+      // Roof (planks)
       if (p.withRoof) {
-        for (let i = 0; i < s; i++) {
-          for (let j = 0; j < s; j++) {
-            last.next = { type: 'spawn', params: { x: i, y: 3, z: j }, next: null, children: null };
-            last = last.next;
-            last.next = { type: 'place', params: { block: 5 }, next: null, children: null }; // wood plank
-            last = last.next;
-          }
-        }
+        push('fill', { x1: 0, y1: 3, z1: 0, x2: s - 1, y2: 3, z2: s - 1, block: 7 });
       }
-      last.next = { type: 'say', params: { text: '🏠 เสร็จแล้ว!' }, next: null, children: null };
+      push('say', { text: '🏠 เสร็จแล้ว!' });
       return script;
     }
   },
@@ -7003,13 +7304,13 @@ const LOCAL_AI_PATTERNS = [
       const blk = p.block || 8;
       const script = {
         type: 'on_start', params: {},
-        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+        next: { type: 'spawn', params: { x: 0, y: 0, z: 0 }, next: null, children: null }
       };
       let last = script.next;
       last.next = { type: 'say', params: { text: `🧱 สร้างกำแพงยาว ${len}` }, next: null, children: null };
       last = last.next;
       for (let i = 0; i < len; i++) {
-        last.next = { type: 'spawn', params: { x: i, y: 30, z: 0 }, next: null, children: null };
+        last.next = { type: 'spawn', params: { x: i, y: 0, z: 0 }, next: null, children: null };
         last = last.next;
         last.next = { type: 'place', params: { block: blk }, next: null, children: null };
         last = last.next;
@@ -7027,7 +7328,7 @@ const LOCAL_AI_PATTERNS = [
       const blk = p.block || 8;
       const script = {
         type: 'on_start', params: {},
-        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+        next: { type: 'spawn', params: { x: 0, y: 0, z: 0 }, next: null, children: null }
       };
       let last = script.next;
       last.next = { type: 'say', params: { text: `🏗 สร้างหอคอยสูง ${h}` }, next: null, children: null };
@@ -7055,13 +7356,13 @@ const LOCAL_AI_PATTERNS = [
       const len = p.length || 15;
       const script = {
         type: 'on_start', params: {},
-        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+        next: { type: 'spawn', params: { x: 0, y: 0, z: 0 }, next: null, children: null }
       };
       let last = script.next;
       last.next = { type: 'say', params: { text: `🌉 สร้างสะพานยาว ${len}` }, next: null, children: null };
       last = last.next;
       for (let i = 0; i < len; i++) {
-        last.next = { type: 'spawn', params: { x: i, y: 30, z: 0 }, next: null, children: null };
+        last.next = { type: 'spawn', params: { x: i, y: 0, z: 0 }, next: null, children: null };
         last = last.next;
         last.next = { type: 'place', params: { block: 7 }, next: null, children: null }; // planks
         last = last.next;
@@ -7078,14 +7379,14 @@ const LOCAL_AI_PATTERNS = [
       const blk = p.block || 7;
       const script = {
         type: 'on_start', params: {},
-        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+        next: { type: 'spawn', params: { x: 0, y: 0, z: 0 }, next: null, children: null }
       };
       let last = script.next;
       last.next = { type: 'say', params: { text: `⬜ สร้างพื้น ${w}x${d}` }, next: null, children: null };
       last = last.next;
       for (let i = 0; i < w; i++) {
         for (let j = 0; j < d; j++) {
-          last.next = { type: 'spawn', params: { x: i, y: 30, z: j }, next: null, children: null };
+          last.next = { type: 'spawn', params: { x: i, y: 0, z: j }, next: null, children: null };
           last = last.next;
           last.next = { type: 'place', params: { block: blk }, next: null, children: null };
           last = last.next;
@@ -7103,7 +7404,7 @@ const LOCAL_AI_PATTERNS = [
       const blk = p.block || 4; // sand
       const script = {
         type: 'on_start', params: {},
-        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+        next: { type: 'spawn', params: { x: 0, y: 0, z: 0 }, next: null, children: null }
       };
       let last = script.next;
       last.next = { type: 'say', params: { text: `🔺 สร้างพีระมิด ${size}x${size}` }, next: null, children: null };
@@ -7131,7 +7432,7 @@ const LOCAL_AI_PATTERNS = [
       const w = p.width || 5, d = p.depth || 5;
       const script = {
         type: 'on_start', params: {},
-        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+        next: { type: 'spawn', params: { x: 0, y: 0, z: 0 }, next: null, children: null }
       };
       let last = script.next;
       last.next = { type: 'say', params: { text: `🏊 สร้างสระ ${w}x${d}` }, next: null, children: null };
@@ -7139,7 +7440,7 @@ const LOCAL_AI_PATTERNS = [
       // Dig a hole
       for (let i = 0; i < w; i++) {
         for (let j = 0; j < d; j++) {
-          last.next = { type: 'spawn', params: { x: i, y: 30, z: j }, next: null, children: null };
+          last.next = { type: 'spawn', params: { x: i, y: 0, z: j }, next: null, children: null };
           last = last.next;
           last.next = { type: 'break_block', params: {}, next: null, children: null };
           last = last.next;
@@ -7159,7 +7460,7 @@ const LOCAL_AI_PATTERNS = [
       const blk = p.block || 8;
       const script = {
         type: 'on_start', params: {},
-        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+        next: { type: 'spawn', params: { x: 0, y: 0, z: 0 }, next: null, children: null }
       };
       let last = script.next;
       last.next = { type: 'say', params: { text: `⭕ วงกลมรัศมี ${r}` }, next: null, children: null };
@@ -7168,7 +7469,7 @@ const LOCAL_AI_PATTERNS = [
         const rad = (i * Math.PI) / 180;
         const x = Math.round(r * Math.cos(rad));
         const z = Math.round(r * Math.sin(rad));
-        last.next = { type: 'spawn', params: { x, y: 30, z }, next: null, children: null };
+        last.next = { type: 'spawn', params: { x, y: 0, z }, next: null, children: null };
         last = last.next;
         last.next = { type: 'place', params: { block: blk }, next: null, children: null };
         last = last.next;
@@ -7184,7 +7485,7 @@ const LOCAL_AI_PATTERNS = [
       const w = p.width || 3, d = p.depth || 3, depth = p.depth2 || 3;
       const script = {
         type: 'on_start', params: {},
-        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+        next: { type: 'spawn', params: { x: 0, y: 0, z: 0 }, next: null, children: null }
       };
       let last = script.next;
       last.next = { type: 'say', params: { text: `⛏ ขุดหลุม ${w}x${d}x${depth}` }, next: null, children: null };
@@ -7192,7 +7493,7 @@ const LOCAL_AI_PATTERNS = [
       for (let y = 0; y < depth; y++) {
         for (let i = 0; i < w; i++) {
           for (let j = 0; j < d; j++) {
-            last.next = { type: 'spawn', params: { x: i, y: 30 - y, z: j }, next: null, children: null };
+            last.next = { type: 'spawn', params: { x: i, y: -y, z: j }, next: null, children: null };
             last = last.next;
             last.next = { type: 'break_block', params: {}, next: null, children: null };
             last = last.next;
@@ -7211,7 +7512,7 @@ const LOCAL_AI_PATTERNS = [
       const count = p.count || 10;
       const script = {
         type: 'on_start', params: {},
-        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+        next: { type: 'spawn', params: { x: 0, y: 0, z: 0 }, next: null, children: null }
       };
       let last = script.next;
       last.next = { type: 'walk', params: { direction: dir, count }, next: null, children: null };
@@ -7226,7 +7527,7 @@ const LOCAL_AI_PATTERNS = [
     build(p, ctx) {
       const script = {
         type: 'on_start', params: {},
-        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+        next: { type: 'spawn', params: { x: 0, y: 0, z: 0 }, next: null, children: null }
       };
       let last = script.next;
       last.next = { type: 'say', params: { text: 'สวัสดีครับ! 👋' }, next: null, children: null };
@@ -7244,7 +7545,7 @@ const LOCAL_AI_PATTERNS = [
       const h = p.height || 5;
       const script = {
         type: 'on_start', params: {},
-        next: { type: 'spawn', params: { x: 0, y: 30, z: 0 }, next: null, children: null }
+        next: { type: 'spawn', params: { x: 0, y: 0, z: 0 }, next: null, children: null }
       };
       let last = script.next;
       last.next = { type: 'say', params: { text: '🌳 ปลูกต้นไม้' }, next: null, children: null };
@@ -7341,16 +7642,16 @@ function parseSimpleParams(prompt, defaults) {
   }
   // Extract block type
   const blockKeywords = {
+    'หญ้า': 1, 'grass': 1, 'ดิน': 2, 'dirt': 2,
     'หิน': 3, 'หินก้อน': 3, 'stone': 3,
-    'อิฐ': 8, 'cobble': 8, 'cobblestone': 8,
+    'หินก่อ': 8, 'cobble': 8, 'cobblestone': 8,
     'ไม้': 5, 'wood': 5,
     'ไม้แปรรูป': 7, 'plank': 7, 'planks': 7,
     'ทราย': 4, 'sand': 4,
-    'อิฐแดง': 11, 'brick': 11,
+    'อิฐ': 11, 'brick': 11,
     'หิมะ': 10, 'snow': 10,
     'กระจก': 14, 'glass': 14,
     'น้ำ': 13, 'water': 13,
-    'หญ้า': 1, 'grass': 1, 'ดิน': 2, 'dirt': 2,
     'ฟักทอง': 12, 'pumpkin': 12,
   };
   for (const [kw, id] of Object.entries(blockKeywords)) {
@@ -7369,30 +7670,38 @@ const AI_SYSTEM_PROMPT = `You are a script generator for MiniCraft 3D's Visual B
 
 Generate a JSON script that the game can execute. Output ONLY valid JSON, no other text.
 
+# Coordinate system (IMPORTANT):
+All x/y/z coordinates in spawn/place_at/fill are RELATIVE to the player's
+position when the script runs: (0,0,0) = the player's feet, +y = up.
+Keep builds near the origin (roughly -20..20).
+
 # Block types:
-- Hat blocks (event handlers - these are the starting blocks of each script):
-  - on_start: runs when game starts
-  - on_chat <command>: runs when player types /<command>
-  - on_key <key:w|a|s|d|space>: runs on key press
+- Hat blocks (start of each script):
+  - on_start: runs when Run is pressed
+  - on_chat <command:string>: runs when the player types "/<command>" in chat
+  - on_key <key:w|a|s|d|space|up|down|left|right>: runs on key press
 
 - Motion:
+  - spawn <x> <y> <z>                            (teleport agent, relative)
   - walk <direction:forward|back|left|right> <count:1-20>
   - turn <degrees:-360-360>
   - jump
-  - fly_up <height:1-20>
-  - fly_down <height:1-20>
+  - fly_up <height:1-20> / fly_down <height:1-20>
   - teleport <distance:1-50>
 
 - Action:
-  - break_block
-  - place <block_id:1-29>
+  - place <block_id>                             (place in front of agent)
+  - place_at <x> <y> <z> <block_id>              (place at relative coords)
+  - fill <x1> <y1> <z1> <x2> <y2> <z2> <block_id>  (fill a region, max 8000 blocks)
   - say <text>
-  - spawn <x> <y> <z>
+  - break_block
 
 - Control:
   - repeat <count:1-100> with children: [...]
-  - if_block <condition:block_ahead|ground_below|is_day|is_night> with children: [...]
+  - while_block <condition> with children: [...] (max 200 loops)
+  - if_block <condition> with children: [...]
   - wait <seconds:0.1-10>
+  (conditions: block_ahead | ground_below | is_day | is_night)
 
 - Variables:
   - set_var <name> <value>
@@ -7404,7 +7713,7 @@ Generate a JSON script that the game can execute. Output ONLY valid JSON, no oth
 13=WATER, 14=GLASS, 15=TORCH, 16=DOOR, 17=CACTUS, 18=SANDSTONE,
 19=ICE, 20=ORE_COAL, 21=ORE_IRON, 22=ORE_GOLD, 23=ORE_DIAMOND,
 24=GLOWSTONE, 25=CRAFTING_TABLE, 26=LEVER, 27=PRESSURE_PLATE,
-28=FLOWER, 29=SAPLING
+28=FLOWER, 29=SAPLING, 30=CHEST, 31=FURNACE
 
 # Format:
 {
@@ -7417,8 +7726,8 @@ Generate a JSON script that the game can execute. Output ONLY valid JSON, no oth
       "params": {},
       "next": {
         "id": "b_<unique>",
-        "type": "place",
-        "params": { "block": 8 },
+        "type": "fill",
+        "params": { "x1": 0, "y1": 0, "z1": 0, "x2": 4, "y2": 0, "z2": 4, "block": 7 },
         "next": null,
         "children": null
       },
@@ -7429,11 +7738,10 @@ Generate a JSON script that the game can execute. Output ONLY valid JSON, no oth
 
 # Rules:
 - Every script starts with a hat block (on_start, on_chat, on_key)
-- "next" chains blocks together
-- "children" is for repeat/if_block (contains nested blocks)
-- For building, use spawn + place sequences
-- For movement, use walk (count 1-20) or teleport
-- Keep scripts reasonable (under 100 blocks)
+- "next" chains blocks together; "children" is for repeat/if/while
+- PREFER fill over repeated place_at for floors/walls/roofs (1 block vs many)
+- Houses: fill 4 walls (leave a door gap), glass windows, fill roof
+- Keep scripts reasonable (under ~60 blocks)
 - Use say blocks to communicate progress
 
 User request: `;
@@ -7618,6 +7926,7 @@ async function runAI() {
 function applyAIResult(mode) {
   if (!_aiLastResult) return;
   const newScripts = _aiLastResult.script.scripts;
+  pushUndo();
   if (mode === 'replace') {
     savedScripts = [];
   }
