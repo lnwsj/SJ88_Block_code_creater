@@ -896,6 +896,10 @@ let currentSeed = Date.now() & 0x7fffffff;
 let dirty = false;
 
 function saveGame() {
+  // Never auto-persist while inside an MP room — that world belongs to the host's
+  // room; writing it here would overwrite the player's own single-player save.
+  // (try/catch: saveGame may be reached before `mp` is initialized)
+  try { if (mp && mp.connected && mp.roomCode) return; } catch (e) {}
   try {
     const data = {
       v: 2,  // save version
@@ -2843,7 +2847,7 @@ function toast(msg) {
 // ======================================================================
 // GAME FLOW
 // ======================================================================
-function startNewWorld() {
+function startNewWorld(preview = false) {
   currentSeed = (Math.random() * 0x7fffffff) | 0;
   document.getElementById('seed-display').textContent = 'Seed: ' + currentSeed;
   document.getElementById('dseed').textContent = currentSeed;
@@ -2881,7 +2885,8 @@ function startNewWorld() {
   initStats();
   spawnMobs();
   meshRebuildNeeded = true;
-  saveGame();
+  // preview=true = background world at page load — must NOT write over a real save
+  if (!preview) saveGame();
 }
 
 function loadSavedWorld() {
@@ -2939,16 +2944,22 @@ function loadSavedWorld() {
 // ======================================================================
 // INIT
 // ======================================================================
+// True once the player entered a world this session — btn-play then acts as "resume",
+// so an accidental click mid-session can't wipe the current world with a fresh one.
+let gameStarted = false;
 document.getElementById('btn-play').addEventListener('click', () => {
-  // If in MP mode and world is already loaded, don't regenerate
-  if (mp.connected && mp.roomCode && world && world.length > 0) {
+  // Already in a world this session (or MP world loaded) → just resume, don't regenerate
+  if (gameStarted || (mp.connected && mp.roomCode && world && world.length > 0)) {
     if (!isTouchDevice) lockPointer();
     else document.body.classList.add('playing'); // mobile: hide start screen without pointer lock
-  } else {
-    startNewWorld();
-    if (!isTouchDevice) lockPointer();
-    else document.body.classList.add('playing'); // mobile
+    return;
   }
+  // A brand-new world destroys the existing single-slot save — confirm first
+  if (hasSave() && !confirm('มีเซฟเก่าอยู่ — เริ่มโลกใหม่จะ "ทับ" เซฟเก่า ยืนยัน?')) return;
+  startNewWorld();
+  gameStarted = true;
+  if (!isTouchDevice) lockPointer();
+  else document.body.classList.add('playing'); // mobile
 });
 // Menu button on mobile: show pause modal
 document.querySelector('.mob-menu')?.addEventListener('click', () => {
@@ -2969,6 +2980,7 @@ if (isTouchDevice) {
 }
 document.getElementById('btn-load').addEventListener('click', () => {
   if (loadSavedWorld()) {
+    gameStarted = true;
     lockPointer();
   } else {
     toast('❌ ไม่มีเซฟ — กด "เริ่มเล่นโลกใหม่" ก่อน');
@@ -2980,7 +2992,9 @@ document.getElementById('btn-resume').addEventListener('click', () => {
 });
 
 // Initial world generation so the first frame isn't black
-startNewWorld();
+// preview=true: generate WITHOUT saving, so merely opening the page
+// can no longer overwrite an existing save (old data-loss bug)
+startNewWorld(true);
 
 // Show load button only if save exists
 if (!hasSave()) {
@@ -3755,35 +3769,29 @@ function updateInventoryUI() {
     el.innerHTML = '<p style="color:var(--muted)">คลังว่าง — ทุบบล็อกเพื่อเก็บของ</p>';
     return;
   }
+  // Item names/counts can come from installed mods or MP-synced chests — escape
+  // everything user-visible, and use index-based canvas ids so odd names can
+  // neither inject HTML nor break the icon lookup below.
   let html = '';
-  for (const it of inventory) {
-    const id = `inv-${it.name}`;
-    const isBlock = it.name.startsWith('block:');
-    let blockId = null;
-    if (isBlock) {
-      blockId = parseInt(it.name.slice(6));
-      const name = BLOCK_NAMES[blockId] || it.name;
-      html += `<div class="inv-row"><div class="lbl">${name}</div><div class="slots"><div class="inv-slot" data-name="${it.name}"><canvas id="${id}" width="32" height="32"></canvas><span class="count">${it.count}</span></div></div></div>`;
-    } else {
-      const items = getItems();
-      const info = items.get(it.name) || { name: it.name };
-      html += `<div class="inv-row"><div class="lbl">${info.name}</div><div class="slots"><div class="inv-slot" data-name="${it.name}"><canvas id="${id}" width="32" height="32"></canvas><span class="count">${it.count}</span></div></div></div>`;
-    }
-  }
+  inventory.forEach((it, i) => {
+    const label = it.name.startsWith('block:')
+      ? (BLOCK_NAMES[parseInt(it.name.slice(6))] || it.name)
+      : ((getItems().get(it.name) || { name: it.name }).name);
+    html += `<div class="inv-row"><div class="lbl">${escapeHTML(label)}</div><div class="slots"><div class="inv-slot" data-name="${escapeHTML(it.name)}"><canvas id="inv-${i}" width="32" height="32"></canvas><span class="count">${escapeHTML(String(it.count))}</span></div></div></div>`;
+  });
   el.innerHTML = html;
   // draw icons
-  for (const it of inventory) {
-    const c = document.getElementById(`inv-${it.name}`);
+  inventory.forEach((it, i) => {
+    const c = document.getElementById(`inv-${i}`);
     if (c) {
       const ctx = c.getContext('2d');
       if (it.name.startsWith('block:')) {
-        const bid = parseInt(it.name.slice(6));
-        drawBlockIcon(ctx, bid, 2, 2, 28);
+        drawBlockIcon(ctx, parseInt(it.name.slice(6)), 2, 2, 28);
       } else {
         drawItemIcon(ctx, it.name, 2, 2, 28);
       }
     }
-  }
+  });
 }
 
 // ======================================================================
@@ -4044,13 +4052,15 @@ function buildCraftUI() {
       const ingText = r.ingredients.map(ing => {
         const n = ing.name.startsWith('block:') ?
           BLOCK_NAMES[parseInt(ing.name.slice(6))] : (allItems.get(ing.name)?.name || ing.name);
-        return `${n} x${ing.count}`;
+        return `${escapeHTML(String(n))} x${escapeHTML(String(ing.count))}`;
       }).join(' + ');
-      const modTag = r.mod && r.mod !== 'vanilla' ? `<span style="color:#ffd800;font-size:9px"> [${r.mod}]</span>` : '';
-      html += `<div class="craft-item" data-result="${r.result.name}" data-count="${r.result.count}" ${canCraft ? '' : 'style="opacity:.5"'}>
-        <canvas data-item="${r.result.name}" width="36" height="36"></canvas>
+      // Mod-supplied names flow into innerHTML — escape display text and attributes
+      const resNameAttr = escapeHTML(r.result.name);
+      const modTag = r.mod && r.mod !== 'vanilla' ? `<span style="color:#ffd800;font-size:9px"> [${escapeHTML(String(r.mod))}]</span>` : '';
+      html += `<div class="craft-item" data-result="${resNameAttr}" data-count="${escapeHTML(String(r.result.count))}" ${canCraft ? '' : 'style="opacity:.5"'}>
+        <canvas data-item="${resNameAttr}" width="36" height="36"></canvas>
         <div class="info">
-          <div class="name">${resultName} x${r.result.count}${modTag}</div>
+          <div class="name">${escapeHTML(String(resultName))} x${escapeHTML(String(r.result.count))}${modTag}</div>
           <div class="recipe">${ingText}</div>
         </div>
       </div>`;
@@ -5018,6 +5028,7 @@ function handleMPMessage(msg) {
     mp.roomCode = msg.code;
     mp.myId = msg.id;
     mp.isHost = true;
+    gameStarted = true;
     updateMPStatus('สร้างห้อง ' + msg.code, '#7cda24');
     // Only share local world if not resumed (resumed world comes via world_sync)
     if (!msg.resumed) {
@@ -5030,6 +5041,7 @@ function handleMPMessage(msg) {
     mp.roomCode = msg.code;
     mp.myId = msg.id;
     mp.isHost = false;
+    gameStarted = true;
     // Apply world state
     if (msg.world) applyWorldState(msg.world, msg.seed);
     // Add existing players
@@ -5232,6 +5244,12 @@ function hideMPPanel() {
   document.getElementById('mp-panel').classList.remove('show');
 }
 
+// Colors arriving from the network go straight into style="..." — only allow hex,
+// anything else (e.g. an attribute-breaking quote) falls back to a safe default.
+function sanitizeColor(c, fallback = '#888') {
+  return /^#[0-9a-fA-F]{3,8}$/.test(String(c || '')) ? c : fallback;
+}
+
 function updateMPUI() {
   const playersEl = document.getElementById('mp-players');
   const listEl = document.getElementById('mp-player-list');
@@ -5245,9 +5263,10 @@ function updateMPUI() {
   document.getElementById('chat-toggle').classList.add('show');
   const total = 1 + mp.remotePlayers.size; // me + others
   countEl.textContent = total;
-  let html = `<div class="mp-player-row"><div class="mp-player-dot" style="background:${mp.myColor}"></div>${mp.myName} <span style="color:#7cda24;font-size:10px">(คุณ)</span></div>`;
+  // Names/colors come from other players via the server — escape names, validate colors
+  let html = `<div class="mp-player-row"><div class="mp-player-dot" style="background:${sanitizeColor(mp.myColor, '#4a9eff')}"></div>${escapeHTML(mp.myName)} <span style="color:#7cda24;font-size:10px">(คุณ)</span></div>`;
   for (const [, p] of mp.remotePlayers) {
-    html += `<div class="mp-player-row"><div class="mp-player-dot" style="background:${p.color || '#888'}"></div>${p.name} <span style="color:#888">HP:${p.hp || 20}</span></div>`;
+    html += `<div class="mp-player-row"><div class="mp-player-dot" style="background:${sanitizeColor(p.color)}"></div>${escapeHTML(p.name)} <span style="color:#888">HP:${escapeHTML(String(p.hp || 20))}</span></div>`;
   }
   listEl.innerHTML = html;
 }
@@ -5559,7 +5578,7 @@ function addChat(name, msg, color) {
   if (!log) return;
   const div = document.createElement('div');
   div.className = 'chat-msg';
-  div.innerHTML = `<span class="chat-name" style="color:${color || '#4a9eff'}">${escapeHTML(name)}:</span> ${escapeHTML(msg)}`;
+  div.innerHTML = `<span class="chat-name" style="color:${sanitizeColor(color, '#4a9eff')}">${escapeHTML(name)}:</span> ${escapeHTML(msg)}`;
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
 }
@@ -5776,7 +5795,7 @@ function updateModsUI() {
   // Stats
   const stats = ModManager.stats();
   document.getElementById('mods-stats').innerHTML =
-    `<b>📦 ${stats.modCount} mods</b> • 🍳 ${stats.recipeCount} recipes • 🧱 ${stats.itemCount} items<br><span style="color:#888;font-size:11px">Mods: ${ModManager.mods.map(m => m.name).join(', ')}</span>`;
+    `<b>📦 ${stats.modCount} mods</b> • 🍳 ${stats.recipeCount} recipes • 🧱 ${stats.itemCount} items<br><span style="color:#888;font-size:11px">Mods: ${ModManager.mods.map(m => escapeHTML(m.name)).join(', ')}</span>`;
   // List
   let html = '';
   for (const m of ModManager.mods) {
