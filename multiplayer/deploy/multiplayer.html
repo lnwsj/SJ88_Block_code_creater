@@ -901,15 +901,21 @@ function saveGame() {
   // (try/catch: saveGame may be reached before `mp` is initialized)
   try { if (mp && mp.connected && mp.roomCode) return; } catch (e) {}
   try {
+    // Chest contents travel with the save (key "x_y_z" -> 27 slots)
+    const chestData = {};
+    for (const [k, ch] of chests.entries()) {
+      if (ch.items && ch.items.some(it => it !== null)) chestData[k] = ch.items;
+    }
     const data = {
-      v: 2,  // save version
+      v: 3,  // save version (3 = RLE/base64 world+meta + chests)
       seed: currentSeed,
       px: player.x, py: player.y, pz: player.z,
       yaw: player.yaw, pitch: player.pitch,
       fly: player.flyMode,
       hp: player.hp,
-      world: Array.from(world),
-      meta: Array.from(meta),
+      worldB64: rleEncodeU8(world),
+      metaB64: rleEncodeU8(meta),
+      chests: chestData,
       sel: selectedSlot,
       inv: inventory,
       hung: hunger,
@@ -940,6 +946,38 @@ function loadGame() {
 }
 
 function hasSave() { return !!localStorage.getItem(SAVE_KEY); }
+
+// Compact save encoding: run-length encode a Uint8Array, then base64.
+// The old format stored every block as a JSON number (~300KB per save);
+// RLE+base64 typically shrinks world+meta to a small fraction of that.
+function rleEncodeU8(arr) {
+  const out = [];
+  let i = 0;
+  while (i < arr.length) {
+    const v = arr[i];
+    let run = 1;
+    while (i + run < arr.length && arr[i + run] === v && run < 65535) run++;
+    out.push(run & 255, (run >> 8) & 255, v);
+    i += run;
+  }
+  let s = '';
+  for (let j = 0; j < out.length; j += 8192) {
+    s += String.fromCharCode.apply(null, out.slice(j, j + 8192));
+  }
+  return btoa(s);
+}
+function rleDecodeU8(b64, target) {
+  try {
+    const s = atob(b64);
+    let o = 0;
+    for (let i = 0; i + 2 < s.length; i += 3) {
+      const run = s.charCodeAt(i) | (s.charCodeAt(i + 1) << 8);
+      const v = s.charCodeAt(i + 2);
+      for (let r = 0; r < run && o < target.length; r++) target[o++] = v;
+    }
+    return o === target.length;
+  } catch (e) { return false; }
+}
 
 // ======================================================================
 // PROCEDURAL TEXTURE ATLAS
@@ -1608,7 +1646,7 @@ function getBlock(x, y, z) {
 function setBlock(x, y, z, t) {
   if (!inBounds(x, y, z)) return;
   world[idx(x, y, z)] = t;
-  dirty = true;
+  markChunkDirty(x, z); // per-chunk remesh (defined in the MESH BUILDING section)
 }
 
 function vnoise2(x, y, salt) {
@@ -1827,18 +1865,38 @@ function findSpawn() {
 // ======================================================================
 // MESH BUILDING
 // ======================================================================
-const positions = [];
-const normals = [];
-const uvs = [];
-const indices = [];
-const colors = []; // not used, kept for future
-let meshRebuildNeeded = true;
+// Chunked mesh storage: the world is split into CHUNK x CHUNK full-height
+// column chunks. Only dirty chunks are rebuilt (one block edit = 1-2 chunk
+// rebuilds instead of a whole-world rescan), and per-chunk vertex counts stay
+// far below the Uint16 index limit — the old single whole-world mesh reached
+// ~100k+ vertices and its indices silently wrapped past 65535 (corrupted faces).
+const CHUNK = 16;
+const CHUNKS_X = Math.ceil(W / CHUNK);
+const CHUNKS_Z = Math.ceil(D / CHUNK);
+let meshRebuildNeeded = true; // true = mark every chunk dirty on the next frame
 
-function clearMesh() {
-  positions.length = 0;
-  normals.length = 0;
-  uvs.length = 0;
-  indices.length = 0;
+const chunks = [];
+for (let cz = 0; cz < CHUNKS_Z; cz++) {
+  for (let cx = 0; cx < CHUNKS_X; cx++) {
+    chunks.push({
+      cx, cz, dirty: true, faces: 0, buf: null,
+      opaque: { positions: [], normals: [], uvs: [], indices: [] },
+      transp: { positions: [], normals: [], uvs: [], indices: [] },
+    });
+  }
+}
+function chunkAt(cx, cz) {
+  return (cx < 0 || cz < 0 || cx >= CHUNKS_X || cz >= CHUNKS_Z) ? null : chunks[cz * CHUNKS_X + cx];
+}
+function markChunkDirty(x, z) {
+  const cx = x >> 4, cz = z >> 4;
+  const c = chunkAt(cx, cz);
+  if (c) c.dirty = true;
+  // Editing a border block changes face culling in the neighboring chunk too
+  if ((x & (CHUNK - 1)) === 0) { const n = chunkAt(cx - 1, cz); if (n) n.dirty = true; }
+  if ((x & (CHUNK - 1)) === CHUNK - 1) { const n = chunkAt(cx + 1, cz); if (n) n.dirty = true; }
+  if ((z & (CHUNK - 1)) === 0) { const n = chunkAt(cx, cz - 1); if (n) n.dirty = true; }
+  if ((z & (CHUNK - 1)) === CHUNK - 1) { const n = chunkAt(cx, cz + 1); if (n) n.dirty = true; }
 }
 
 // Face directions: 0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z
@@ -1895,62 +1953,41 @@ function addFace(target, bx, by, bz, face, blockType) {
   target.indices.push(baseIdx, baseIdx+1, baseIdx+2, baseIdx+1, baseIdx+3, baseIdx+2);
 }
 
-function buildMesh() {
-  // Separate meshes: opaque and transparent
-  const opaque = { positions: [], normals: [], uvs: [], indices: [] };
-  const transp = { positions: [], normals: [], uvs: [], indices: [] };
-  let faceCount = 0;
-  for (let z = 0; z < D; z++) {
+function buildChunkMesh(ch) {
+  const o = ch.opaque, t = ch.transp;
+  o.positions.length = o.normals.length = o.uvs.length = o.indices.length = 0;
+  t.positions.length = t.normals.length = t.uvs.length = t.indices.length = 0;
+  let faces = 0;
+  const x0 = ch.cx * CHUNK, z0 = ch.cz * CHUNK;
+  for (let z = z0; z < z0 + CHUNK; z++) {
     for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        let b = world[idx(x, y, z)];
+      for (let x = x0; x < x0 + CHUNK; x++) {
+        const b = world[idx(x, y, z)];
+        if (b === B.AIR) continue;
         // Skip open doors (treat as air visually)
         if (b === B.DOOR && (meta[idx(x, y, z)] & 2) !== 0) continue;
-        if (b === B.AIR) continue;
         const isT = TRANSPARENT.has(b) && b !== B.LEAVES; // water, glass, ice
-        const target = isT ? transp : opaque;
+        const target = isT ? t : o;
         for (let f = 0; f < 6; f++) {
           const nx = x + FACE_NORMALS[f][0];
           const ny = y + FACE_NORMALS[f][1];
           const nz = z + FACE_NORMALS[f][2];
           const nb = getBlock(nx, ny, nz);
-          const isOpenDoor = nb === B.DOOR && (meta[idx(nx, ny, nz)] & 2) !== 0;
+          const isOpenDoor = nb === B.DOOR && inBounds(nx, ny, nz) && (meta[idx(nx, ny, nz)] & 2) !== 0;
           // For opaque: face visible if neighbor is air or transparent
           // For transparent: face visible if neighbor is air
-          if (isT) {
-            if (nb === B.AIR || isOpenDoor) {
-              addFace(target, x, y, z, f, b);
-              faceCount++;
-            }
-          } else {
-            if (TRANSPARENT.has(nb) || isOpenDoor) {
-              addFace(target, x, y, z, f, b);
-              faceCount++;
-            }
+          if (isT ? (nb === B.AIR || isOpenDoor) : (TRANSPARENT.has(nb) || isOpenDoor)) {
+            addFace(target, x, y, z, f, b);
+            faces++;
           }
         }
       }
     }
   }
-  // Copy to main buffers (avoid spread on huge arrays - causes stack overflow)
-  positions.length = 0;
-  for (let i = 0; i < opaque.positions.length; i++) positions.push(opaque.positions[i]);
-  normals.length = 0;
-  for (let i = 0; i < opaque.normals.length; i++) normals.push(opaque.normals[i]);
-  uvs.length = 0;
-  for (let i = 0; i < opaque.uvs.length; i++) uvs.push(opaque.uvs[i]);
-  indices.length = 0;
-  for (let i = 0; i < opaque.indices.length; i++) indices.push(opaque.indices[i]);
-  // Transparent in separate buffers
-  meshTransparent = transp;
-  uploadMesh();
-  uploadTransparentMesh();
-  meshRebuildNeeded = false;
-  return { faces: faceCount, verts: positions.length / 3 };
+  ch.faces = faces;
+  uploadChunk(ch);
+  ch.dirty = false;
 }
-
-let meshTransparent = { positions: [], normals: [], uvs: [], indices: [] };
-let transpBuf = {};
 
 // ======================================================================
 // WEBGL SETUP
@@ -2042,47 +2079,60 @@ const uFogStart = gl.getUniformLocation(prog, 'uFogStart');
 const uFogEnd = gl.getUniformLocation(prog, 'uFogEnd');
 const uAmbient = gl.getUniformLocation(prog, 'uAmbient');
 
-// Buffers
-let posBuf, normBuf, uvBuf, idxBuf;
-let bufCapacity = 0;
-
-function ensureBuffers() {
-  if (positions.length > bufCapacity) {
-    bufCapacity = Math.max(positions.length, 1024);
-    posBuf = gl.createBuffer();
-    normBuf = gl.createBuffer();
-    uvBuf = gl.createBuffer();
-    idxBuf = gl.createBuffer();
-  }
+// Per-chunk GPU buffers: created once, refilled in place on rebuild
+// (the old ensureBuffers() allocated fresh buffers on growth and never freed them)
+function bindFill(buf, arr, ArrayType, target) {
+  gl.bindBuffer(target, buf);
+  gl.bufferData(target, new ArrayType(arr), gl.STATIC_DRAW);
 }
 
-function uploadTransparentMesh() {
-  if (!transpBuf.pos) {
-    transpBuf.pos = gl.createBuffer();
-    transpBuf.norm = gl.createBuffer();
-    transpBuf.uv = gl.createBuffer();
-    transpBuf.idx = gl.createBuffer();
+function uploadChunk(ch) {
+  if (!ch.buf) {
+    ch.buf = {
+      pos: gl.createBuffer(), norm: gl.createBuffer(), uv: gl.createBuffer(), idx: gl.createBuffer(),
+      tPos: gl.createBuffer(), tNorm: gl.createBuffer(), tUv: gl.createBuffer(), tIdx: gl.createBuffer(),
+    };
   }
-  gl.bindBuffer(gl.ARRAY_BUFFER, transpBuf.pos);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(meshTransparent.positions), gl.STATIC_DRAW);
-  gl.bindBuffer(gl.ARRAY_BUFFER, transpBuf.norm);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(meshTransparent.normals), gl.STATIC_DRAW);
-  gl.bindBuffer(gl.ARRAY_BUFFER, transpBuf.uv);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(meshTransparent.uvs), gl.STATIC_DRAW);
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, transpBuf.idx);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(meshTransparent.indices), gl.STATIC_DRAW);
+  const b = ch.buf;
+  bindFill(b.pos, ch.opaque.positions, Float32Array, gl.ARRAY_BUFFER);
+  bindFill(b.norm, ch.opaque.normals, Float32Array, gl.ARRAY_BUFFER);
+  bindFill(b.uv, ch.opaque.uvs, Float32Array, gl.ARRAY_BUFFER);
+  bindFill(b.idx, ch.opaque.indices, Uint16Array, gl.ELEMENT_ARRAY_BUFFER);
+  b.iCount = ch.opaque.indices.length;
+  bindFill(b.tPos, ch.transp.positions, Float32Array, gl.ARRAY_BUFFER);
+  bindFill(b.tNorm, ch.transp.normals, Float32Array, gl.ARRAY_BUFFER);
+  bindFill(b.tUv, ch.transp.uvs, Float32Array, gl.ARRAY_BUFFER);
+  bindFill(b.tIdx, ch.transp.indices, Uint16Array, gl.ELEMENT_ARRAY_BUFFER);
+  b.tCount = ch.transp.indices.length;
 }
 
-function uploadMesh() {
-  ensureBuffers();
-  gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
-  gl.bindBuffer(gl.ARRAY_BUFFER, normBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
-  gl.bindBuffer(gl.ARRAY_BUFFER, uvBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+// Frustum culling (Gribb–Hartmann plane extraction from the proj*view matrix)
+let _currentPV = null;    // proj*view of this frame (shared with entity/label projection)
+let _frameFrustum = null;
+let drawnChunks = 0, drawnFaces = 0;
+
+function extractFrustum(m) {
+  const row = i => [m[i], m[4 + i], m[8 + i], m[12 + i]];
+  const r0 = row(0), r1 = row(1), r2 = row(2), r3 = row(3);
+  const planes = [];
+  const push = (a, s) => {
+    const p = [r3[0] + s * a[0], r3[1] + s * a[1], r3[2] + s * a[2], r3[3] + s * a[3]];
+    const l = Math.hypot(p[0], p[1], p[2]) || 1;
+    planes.push([p[0] / l, p[1] / l, p[2] / l, p[3] / l]);
+  };
+  push(r0, 1); push(r0, -1); push(r1, 1); push(r1, -1); push(r2, 1); push(r2, -1);
+  return planes;
+}
+function chunkVisible(ch) {
+  if (!_frameFrustum) return true;
+  const x0 = ch.cx * CHUNK, z0 = ch.cz * CHUNK;
+  const x1 = x0 + CHUNK, z1 = z0 + CHUNK;
+  for (const [a, b, c, d] of _frameFrustum) {
+    // Positive vertex test against the chunk's AABB
+    const px = a >= 0 ? x1 : x0, py = b >= 0 ? H : 0, pz = c >= 0 ? z1 : z0;
+    if (a * px + b * py + c * pz + d < 0) return false;
+  }
+  return true;
 }
 
 // Texture
@@ -2378,7 +2428,12 @@ lookEl.addEventListener('touchcancel', (e) => {
 
 // Action buttons
 const actionHandlers = {
-  jump: () => { keys['Space'] = true; setTimeout(() => keys['Space'] = false, 100); },
+  // Jump directly: the Space-key path only fires from real keydown events,
+  // which touch buttons never produce
+  jump: () => {
+    if (player.flyMode) player.vy = CFG.FLY_SPEED;
+    else if (player.onGround) { player.vy = CFG.JUMP_VEL; player.onGround = false; }
+  },
   fly: () => { player.flyMode = !player.flyMode; toast(player.flyMode ? '✈ Flight ON' : '🚶 Flight OFF'); },
   break: () => breakBlock(),
   place: () => placeBlock(),
@@ -2420,23 +2475,7 @@ canvas.addEventListener('touchstart', (e) => {
   }
 }, { passive: false });
 
-// Integrate joystick into game loop
-let _origMobileLoop = null;
-function mobileUpdate() {
-  if (isTouchDevice) updateJoystickMovement();
-  requestAnimationFrame(mobileUpdate);
-}
-mobileUpdate();
-
-// Don't lock pointer on touch devices
-if (isTouchDevice) {
-  // Override lockPointer to no-op on touch
-  const origLock = window.lockPointer;
-  // No-op on touch devices
-  // (game will still work without pointer lock - we use touch instead)
-}
-// Modify btn-play for mobile: skip lockPointer
-const _origBtnPlayHandler = document.getElementById('btn-play')?.onclick;
+// Joystick movement is polled from the main loop each frame
 
 canvas.addEventListener('wheel', (e) => {
   if (!mouseLocked) return;
@@ -2567,8 +2606,24 @@ function moveAxis(axis, delta) {
   if (axis === 'y' && delta > 0) player.onGround = false;
 }
 
+// "Actually playing" = inside a started world, not behind any modal/pause.
+// Desktop keeps pointer-lock semantics through the modal/pause flags; mobile
+// touch sessions (which can never pointer-lock) simulate properly now.
+function anyModalOpen() {
+  if (invOpen || craftOpen || ctOpen || chestOpen) return true;
+  const ids = ['pause', 'code-modal', 'mods-modal', 'worlds-modal', 'ai-modal'];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el && el.classList.contains('show')) return true;
+  }
+  return false;
+}
+function isGameActive() {
+  return gameStarted && !anyModalOpen();
+}
+
 function updatePlayer(dt) {
-  if (!mouseLocked) return;
+  if (!isGameActive()) return;
   // Movement input
   const forward = (keys['KeyW'] ? 1 : 0) - (keys['KeyS'] ? 1 : 0);
   const strafe = (keys['KeyD'] ? 1 : 0) - (keys['KeyA'] ? 1 : 0);
@@ -2612,6 +2667,15 @@ function updatePlayer(dt) {
     player.vy = 0;
     toast('🌍 กลับจุดเกิด');
   }
+
+  // Fall damage tracking
+  trackFall();
+  // Footstep sound
+  tryStepSound(dt);
+  // Walked-distance stat (feeds achievements)
+  if (!player.flyMode && (Math.abs(player.vx) + Math.abs(player.vz)) > 0.5) {
+    stats.stepsWalked += dt;
+  }
 }
 
 // ======================================================================
@@ -2619,6 +2683,7 @@ function updatePlayer(dt) {
 // ======================================================================
 let lastT = 0;
 let fpsAvg = 0, fpsFrame = 0;
+let mmLastDraw = 0;
 function loop(t) {
   const dt = Math.min((t - lastT) / 1000, 0.1);
   lastT = t;
@@ -2639,21 +2704,56 @@ function loop(t) {
     gl.viewport(0, 0, canvas.width, canvas.height);
   }
 
+  // Rebuild only dirty chunks (meshRebuildNeeded = rebuild everything once)
   if (meshRebuildNeeded) {
-    const info = buildMesh();
-    uploadMesh();
-    document.getElementById('dfaces').textContent = info.faces.toLocaleString();
-    document.getElementById('dverts').textContent = info.verts.toLocaleString();
+    for (const ch of chunks) ch.dirty = true;
+    meshRebuildNeeded = false;
   }
+  let totalFaces = 0, totalVerts = 0, rebuilt = 0;
+  for (const ch of chunks) {
+    if (ch.dirty) { buildChunkMesh(ch); rebuilt++; }
+    totalFaces += ch.faces;
+    totalVerts += (ch.opaque.positions.length + ch.transp.positions.length) / 3;
+  }
+  if (rebuilt > 0 && fpsFrame % 10 === 0) {
+    document.getElementById('dfaces').textContent = totalFaces.toLocaleString();
+    document.getElementById('dverts').textContent = totalVerts.toLocaleString();
+  }
+  document.getElementById('dchunk').textContent = `Chunks: ${drawnChunks}/${chunks.length} (rebuilt ${rebuilt})`;
+
+  // Touch joystick feeds the same key map the keyboard uses
+  if (isTouchDevice) updateJoystickMovement();
 
   updatePlayer(dt);
+
+  // World simulation runs only while actually playing and not behind a modal.
+  // (This gate is what makes mobile touch sessions work — pointer lock never
+  // happens there, so the old mouseLocked gate froze the whole game.)
+  if (isGameActive()) {
+    const timeSpeed = player.flyMode ? 6 : 1; // creative = 6x
+    gameTime += dt * (24000 / CFG.DAY_LENGTH_SEC) * timeSpeed;
+    if (gameTime >= 24000) gameTime -= 24000;
+    updateTimeUI();
+    updateMobs(dt);
+    trackStats(dt);
+    if (Math.random() < dt * 2) updateRedstone();
+    if (Math.random() < dt * 0.5) checkAchievements();
+  }
+
   render();
+  renderMobs();            // mobs in 3D (previously minimap-only)
+  renderRemotePlayers();   // remote players + agent + bots + name labels
+
+  if (mp.connected && mp.roomCode) sendMoveThrottled();
+
+  // Minimap scans the world column-by-column — 4 fps is plenty
+  if (t - mmLastDraw > 250) { drawMinimap(); mmLastDraw = t; }
 
   document.getElementById('pos').textContent =
     `${player.x.toFixed(1)}, ${player.y.toFixed(1)}, ${player.z.toFixed(1)}`;
 
   // Update looked-at block name
-  if (mouseLocked) {
+  if (mouseLocked || isTouchDevice) {
     const r = raycast();
     document.getElementById('bname').textContent = r ? BLOCK_NAMES[r.block] : '-';
   }
@@ -2702,7 +2802,9 @@ function render() {
   // Rotate world relative to camera (model = inverse of player rotation)
   // For simplicity, model = identity (world is static, camera moves)
   const model = mat4Identity();
-  const mvp = mat4Mult(proj, mat4Mult(view, model));
+  const mvp = mat4Mult(proj, view); // model is identity for the static world
+  _currentPV = mvp;
+  _frameFrustum = extractFrustum(mvp);
 
   gl.useProgram(prog);
   gl.uniformMatrix4fv(uMVP, false, mvp);
@@ -2723,39 +2825,48 @@ function render() {
     gl.uniform1i(uAtlas, 0);
   }
 
-  if (positions.length > 0) {
-    gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+  // Opaque chunk pass, then transparent (water/glass) with blending
+  drawnChunks = 0; drawnFaces = 0;
+  for (const ch of chunks) {
+    if (!ch.buf || !ch.buf.iCount) continue;
+    if (!chunkVisible(ch)) continue;
+    const b = ch.buf;
+    gl.bindBuffer(gl.ARRAY_BUFFER, b.pos);
     gl.enableVertexAttribArray(aPos);
     gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, normBuf);
+    gl.bindBuffer(gl.ARRAY_BUFFER, b.norm);
     gl.enableVertexAttribArray(aNormal);
     gl.vertexAttribPointer(aNormal, 3, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuf);
+    gl.bindBuffer(gl.ARRAY_BUFFER, b.uv);
     gl.enableVertexAttribArray(aUV);
     gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf);
-    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, b.idx);
+    gl.drawElements(gl.TRIANGLES, b.iCount, gl.UNSIGNED_SHORT, 0);
+    drawnChunks++;
+    drawnFaces += ch.faces;
   }
 
-  // Draw transparent (water) after opaque, with blending
-  if (meshTransparent && meshTransparent.indices.length > 0) {
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.depthMask(false);  // don't write to depth buffer for transparent
-    gl.bindBuffer(gl.ARRAY_BUFFER, transpBuf.pos);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.depthMask(false); // don't write to depth buffer for transparent
+  for (const ch of chunks) {
+    if (!ch.buf || !ch.buf.tCount) continue;
+    if (!chunkVisible(ch)) continue;
+    const b = ch.buf;
+    gl.bindBuffer(gl.ARRAY_BUFFER, b.tPos);
     gl.enableVertexAttribArray(aPos);
     gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, transpBuf.norm);
+    gl.bindBuffer(gl.ARRAY_BUFFER, b.tNorm);
     gl.enableVertexAttribArray(aNormal);
     gl.vertexAttribPointer(aNormal, 3, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, transpBuf.uv);
+    gl.bindBuffer(gl.ARRAY_BUFFER, b.tUv);
     gl.enableVertexAttribArray(aUV);
     gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, transpBuf.idx);
-    gl.drawElements(gl.TRIANGLES, meshTransparent.indices.length, gl.UNSIGNED_SHORT, 0);
-    gl.depthMask(true);
-    gl.disable(gl.BLEND);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, b.tIdx);
+    gl.drawElements(gl.TRIANGLES, b.tCount, gl.UNSIGNED_SHORT, 0);
   }
+  gl.depthMask(true);
+  gl.disable(gl.BLEND);
 }
 
 // ======================================================================
@@ -2895,17 +3006,27 @@ function loadSavedWorld() {
   currentSeed = data.seed;
   document.getElementById('seed-display').textContent = 'Seed: ' + currentSeed;
   document.getElementById('dseed').textContent = currentSeed;
-  // Restore world array
-  if (data.world && data.world.length === world.length) {
+  // Restore world + meta (v3 = RLE/base64, v2 = legacy JSON arrays)
+  if (data.v >= 3 && typeof data.worldB64 === 'string') {
+    if (!rleDecodeU8(data.worldB64, world) || !rleDecodeU8(data.metaB64 || '', meta)) {
+      generateWorld(currentSeed);
+    }
+  } else if (data.world && data.world.length === world.length) {
     for (let i = 0; i < world.length; i++) world[i] = data.world[i];
+    if (data.meta && data.meta.length === meta.length) {
+      for (let i = 0; i < meta.length; i++) meta[i] = data.meta[i];
+    } else {
+      meta.fill(0);
+    }
   } else {
     generateWorld(currentSeed);
   }
-  // Restore meta
-  if (data.meta && data.meta.length === meta.length) {
-    for (let i = 0; i < meta.length; i++) meta[i] = data.meta[i];
-  } else {
-    meta.fill(0);
+  // Restore chest contents
+  chests.clear();
+  if (data.chests) {
+    for (const [k, items] of Object.entries(data.chests)) {
+      getChestByKey(k).items = items;
+    }
   }
   player.x = data.px; player.y = data.py; player.z = data.pz;
   player.yaw = data.yaw; player.pitch = data.pitch;
@@ -4516,14 +4637,10 @@ function openChest(x, y, z) {
   renderChest();
 }
 function closeChest() {
+  // Items STAY in the chest — it persists via saveGame (v3) and MP world sync.
+  // (The old behavior dumped everything back to the inventory and wiped the
+  // chest on close, which made chests pointless in single-player.)
   chestOpen = false;
-  // Return items to inventory
-  if (openChestRef) {
-    for (const item of openChestRef.items) {
-      if (item) addToInventory(item.name, item.count);
-    }
-    openChestRef.items = new Array(27).fill(null);
-  }
   openChestRef = null;
   document.getElementById('chest-modal').classList.remove('show');
   if (typeof mouseLocked !== 'undefined' && mouseLocked) lockPointer();
@@ -4717,103 +4834,26 @@ document.getElementById('inv-modal').addEventListener('click', e => { if (e.targ
 document.getElementById('craft-modal').addEventListener('click', e => { if (e.target.id === 'craft-modal') closeCrafting(); });
 
 // ======================================================================
-// RENDER LOOP UPDATES (call new systems)
+// MOB RENDERING (3D boxes via the solid-color shader)
 // ======================================================================
-// We need to call these from the existing loop function. Add them as hooks.
-// Since the original loop is a closure, we'll need to add code at its end.
-// Solution: wrap original loop's call to updatePlayer, then add our new updates.
-
-// Override render() to include day/night + mobs
-// Since render is in a closure, we need to inject code via a different approach.
-// Easiest: just add to the existing loop function via patching.
-
-// We'll wrap the updatePlayer and render functions to add hooks.
-const _origUpdatePlayer = updatePlayer;
-updatePlayer = function(dt) {
-  _origUpdatePlayer(dt);
-  // fall damage tracking
-  trackFall();
-  // step sound
-  tryStepSound(dt);
-  // hunger
-  if (!player.flyMode && (Math.abs(player.vx) + Math.abs(player.vz)) > 0.5) {
-    stats.stepsWalked += dt;
-  }
-};
-
-const _origRender = render;
-render = function() {
-  _origRender();
-};
-
-// Patch the loop to add new system updates
-// Find the loop body and inject
-// (We use a different approach: replace the existing loop function entirely? No, that loses too much.)
-// Better: hook into the existing updatePlayer. But we also need to update mobs, time, etc.
-
-// Solution: redefine loop. Find it and replace.
-// But that requires reading the whole function. Let's just add another rAF chain.
-
-// We add our system updates as a parallel rAF loop
-let _lastT2 = 0;
-function systemLoop(t) {
-  const dt = Math.min((t - _lastT2) / 1000, 0.1);
-  _lastT2 = t;
-  // Only run systems when playing
-  if (mouseLocked) {
-    // time progresses faster if hunger
-    const timeSpeed = player.flyMode ? 6 : 1; // creative = 6x
-    gameTime += dt * (24000 / CFG.DAY_LENGTH_SEC) * timeSpeed;
-    if (gameTime >= 24000) gameTime -= 24000;
-    updateTimeUI();
-    updateMobs(dt);
-    trackStats(dt);
-    if (Math.random() < dt * 2) updateRedstone();
-    if (Math.random() < dt * 0.5) checkAchievements();
-  }
-  // Update mob meshes (lazy - rebuild if mobs change)
-  // (skip - mobs are too dynamic to be in static mesh; we'll render them separately)
-  requestAnimationFrame(systemLoop);
-}
-requestAnimationFrame(systemLoop);
-
-// Render mob entities (separate from world mesh)
-// We add this after the main world render in our hooked render()
-const _origRender2 = render;
-render = function() {
-  _origRender2();
-  renderMobs();
-  drawMinimap();
-  renderRemotePlayers();
-};
-
+// Mobs used to be minimap-only — hostiles could chase and hit you while
+// invisible. Each mob type renders as a lit box sized to its definition.
+const _mobMeshCache = new Map();
 function renderMobs() {
   if (mobs.length === 0) return;
-  // Render each mob as a textured box using a simple shader
-  // For simplicity, use solid color + lighting
   for (const m of mobs) {
     const def = MOB_TYPES[m.type];
-    const w = m.w, h = m.h;
-    // We use a simple approach: build a small colored cube mesh and render
-    // But to keep code small, we'll skip mob rendering in 3D and rely on minimap.
-    // Just draw HP bar above each mob
+    if (!def) continue;
+    let cached = _mobMeshCache.get(m.type);
+    if (!cached) {
+      cached = { meshData: { color: def.color, vertices: makeBoxVerts(def.w, def.h) } };
+      cached.glBuf = createGlBufferFor(cached.meshData);
+      _mobMeshCache.set(m.type, cached);
+    }
+    const mvp = mat4Mult(getCurrentProjView(), mat4Translate(m.x - m.w / 2, m.y, m.z - m.w / 2));
+    drawPlayerMesh(cached.glBuf, cached.meshData, mvp);
   }
 }
-
-// Hook the loop to update HP UI on change
-let _lastHP = -1, _lastHunger = -1;
-function _hudHook(dt) {
-  if (player.hp !== _lastHP) { updateHPUI(); _lastHP = player.hp; }
-  if (hunger !== _lastHunger) { updateHungerUI(); _lastHunger = hunger; }
-}
-// Add to system loop
-const _origSystemLoop = systemLoop;
-// Just patch: add hudHook to systemLoop
-// Since we already defined it, the old function still exists - we need to redefine
-// Actually our systemLoop is already defined and runs. Let's hook differently.
-
-// Add to the existing render loop: just modify HUD on a timer
-// (handled by check in updateHPUI/updateHungerUI - they re-render every frame, but it's cheap)
 
 // Init stats
 initStats();
@@ -4828,57 +4868,8 @@ updateInventoryUI();
 // Spawn initial mobs after world gen
 spawnMobs();
 
-// Hook breakBlock to play sound + drop item
-const _origBreakBlock = breakBlock;
-breakBlock = function() {
-  const r = raycast();
-  if (!r) return;
-  const now = performance.now();
-  if (now - lastBreakTime < 200) return;
-  lastBreakTime = now;
-  const b = r.block;
-  if (b === B.BEDROCK) { toast('⛏ หินฐานทุบไม่ได้'); return; }
-  setBlock(r.x, r.y, r.z, B.AIR);
-  meshRebuildNeeded = true;
-  dropBlock(b);
-  // stats
-  stats.blocksBroken[b] = (stats.blocksBroken[b] || 0) + 1;
-  // sound
-  playSound(SOUND_BLOCKS[b] || 'break');
-  // mob aggro
-  for (const m of mobs) {
-    const dx = m.x - r.x, dz = m.z - r.z;
-    if (Math.sqrt(dx*dx + dz*dz) < 8 && MOB_TYPES[m.type].hostile) {
-      m.target = player;
-    }
-  }
-  toast('⛏ ทุบ ' + BLOCK_NAMES[b]);
-};
-
-const _origPlaceBlock = placeBlock;
-placeBlock = function() {
-  const r = raycast();
-  if (!r) return;
-  const nx = r.normal[0], ny = r.normal[1], nz = r.normal[2];
-  const px = Math.floor(player.x), py = Math.floor(player.y), pz = Math.floor(player.z);
-  const px2 = Math.floor(player.x + 0.3), py2 = Math.floor(player.y + 1.5), pz2 = Math.floor(player.z + 0.3);
-  if ((nx === px && (ny === py || ny === py2) && nz === pz) ||
-      (nx === px2 && (ny === py || ny === py2) && nz === pz2)) {
-    toast('❌ วางตรงนี้ไม่ได้');
-    return;
-  }
-  const blockId = HOTBAR[selectedSlot];
-  setBlock(nx, ny, nz, blockId);
-  meshRebuildNeeded = true;
-  stats.blocksPlaced++;
-  // door placed
-  if (blockId === B.DOOR) stats.doorsPlaced++;
-  playSound(PLACE_SOUND[blockId] || 'place');
-  // achievements
-  if (stats.blocksPlaced >= 1) awardAchievement('first_step'); // walk 100 = builder
-  if (stats.blocksPlaced >= 50) awardAchievement('builder');
-  toast('🧱 วาง ' + BLOCK_NAMES[blockId]);
-};
+// NOTE: breakBlock/placeBlock are finalized (with MP broadcast) in the
+// MULTIPLAYER section below — no intermediate overrides needed anymore.
 
 // Shift+right-click = interact with special blocks (lever, crafting table)
 canvas.addEventListener('mousedown', (e) => {
@@ -5112,11 +5103,10 @@ function handleMPMessage(msg) {
     }
   }
   else if (t === 'block_change') {
-    // Apply remote block change
+    // Apply remote block change (setBlock marks the affected chunks dirty)
     if (inBounds(msg.x, msg.y, msg.z)) {
       if (msg.action === 'break') setBlock(msg.x, msg.y, msg.z, B.AIR);
       else if (msg.action === 'place') setBlock(msg.x, msg.y, msg.z, msg.block);
-      meshRebuildNeeded = true;
     }
   }
   else if (t === 'world_sync') {
@@ -5337,7 +5327,6 @@ function renderRemoteBots() {
 }
 
 // Get current proj*view matrix (computed once per frame in render)
-let _currentPV = null;
 function getCurrentProjView() {
   return _currentPV || mat4Identity();
 }
@@ -5530,45 +5519,8 @@ function ensureNameLabel(name, x, y) {
   el.style.top = (y - 8) + 'px';
 }
 
-// Hook the render loop to draw remote players + names
-const _origRenderMP = render;
-render = function() {
-  // Compute current proj*view once for remote players
-  const ex = player.x, ey = player.y + CFG.PLAYER_EYE, ez = player.z;
-  const cy = Math.cos(player.yaw), sy = Math.sin(player.yaw);
-  const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
-  const fx = -sy*cp, fy = sp, fz = -cy*cp;
-  const aspect = canvas.width / canvas.height;
-  const proj = mat4Perspective(Math.PI/3, aspect, 0.1, 500);
-  const view = mat4LookAt(ex, ey, ez, ex+fx, ey+fy, ez+fz, 0, 1, 0);
-  _currentPV = mat4Mult(proj, view);
-  // Main render
-  _origRenderMP();
-  // Draw remote players
-  if (mp.connected && mp.roomCode) {
-    // Update name labels (2D)
-    for (const [, p] of mp.remotePlayers) {
-      if (p.x != null && p.lastUpdate && Date.now() - p.lastUpdate < 30000) {
-        drawPlayerName(p.name, p.x, p.y + 1.9, p.z);
-      } else {
-        // hide label
-        const el = nameLabels.get(p.name);
-        if (el) el.style.display = 'none';
-      }
-    }
-    // Draw 3D player boxes
-    gl.useProgram(prog); // ensure main program is bound
-    // Disable depth for transparent? no, we want depth
-    for (const [, p] of mp.remotePlayers) {
-      if (p.x != null && p.meshData && p.glBuf && p.lastUpdate && Date.now() - p.lastUpdate < 30000) {
-        const mvp = mat4Mult(_currentPV, mat4Translate(p.x - 0.3, p.y, p.z - 0.3));
-        drawPlayerMesh(p.glBuf, p.meshData, mvp);
-      }
-    }
-  }
-  // Send position update
-  if (mp.connected && mp.roomCode) sendMoveThrottled();
-};
+// Remote players are drawn by the main loop (renderRemotePlayers) right after
+// render(), using _currentPV computed there — no render() override needed.
 
 // CHAT
 function addChat(name, msg, color) {
@@ -5704,9 +5656,18 @@ breakBlock = function() {
   lastBreakTime = now;
   const b = r.block;
   if (b === B.BEDROCK) { toast('⛏ หินฐานทุบไม่ได้'); return; }
-  setBlock(r.x, r.y, r.z, B.AIR);
-  meshRebuildNeeded = true;
+  setBlock(r.x, r.y, r.z, B.AIR); // marks the affected chunks dirty
   dropBlock(b);
+  // Breaking a chest returns its contents to the inventory
+  if (b === B.CHEST) {
+    const k = chestKey(r.x, r.y, r.z);
+    const ch = chests.get(k);
+    if (ch) {
+      for (const it of ch.items) if (it) addToInventory(it.name, it.count);
+      chests.delete(k);
+      toast('📦 หีบแตก — ของในหีบกลับเข้าคลัง');
+    }
+  }
   stats.blocksBroken[b] = (stats.blocksBroken[b] || 0) + 1;
   playSound(SOUND_BLOCKS[b] || 'break');
   // Broadcast
@@ -5734,8 +5695,7 @@ placeBlock = function() {
     return;
   }
   const blockId = HOTBAR[selectedSlot];
-  setBlock(nx, ny, nz, blockId);
-  meshRebuildNeeded = true;
+  setBlock(nx, ny, nz, blockId); // marks the affected chunks dirty
   stats.blocksPlaced++;
   if (blockId === B.DOOR) stats.doorsPlaced++;
   playSound(PLACE_SOUND[blockId] || 'place');
