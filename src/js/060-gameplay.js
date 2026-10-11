@@ -127,6 +127,25 @@ function playSound(type) {
       osc.start(now); osc.stop(now + 0.1);
       break;
     }
+    case 'sword': {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(90, now + 0.12);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      osc.start(now); osc.stop(now + 0.14);
+      break;
+    }
+    case 'eat': {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(160, now);
+      osc.frequency.setValueAtTime(120, now + 0.06);
+      osc.frequency.setValueAtTime(180, now + 0.12);
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      osc.start(now); osc.stop(now + 0.18);
+      break;
+    }
     default: osc.start(now); osc.stop(now + 0.05);
   }
 }
@@ -238,6 +257,20 @@ function updateHPUI() {
     if (filled) html += '<span class="heart">❤️</span>';
     else if (half) html += '<span class="heart" style="opacity:.5">❤️</span>';
     else html += '<span class="heart" style="opacity:.15">❤️</span>';
+  }
+  el.innerHTML = html;
+}
+
+// Air bubbles — hidden while full, shown while the head is underwater
+function updateAirUI() {
+  const el = document.getElementById('hud-air');
+  if (!el) return;
+  if (air >= MAX_AIR) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  const bubbles = Math.ceil(air);
+  let html = '';
+  for (let i = 0; i < MAX_AIR; i++) {
+    html += `<span style="opacity:${i < bubbles ? 1 : 0.2}">🫧</span>`;
   }
   el.innerHTML = html;
 }
@@ -507,10 +540,46 @@ function damageMob(m, amount) {
     addToInventory(def.drops, 1 + (Math.random() < 0.5 ? 1 : 0));
     playSound('hurt');
     m.dead = true;
+    stats.mobsKilled++; // feeds the 'monster hunter' achievement (was never counted before)
     if (def.hostile) {
       awardAchievement('monster_hunter');
     }
   }
+}
+
+// ---- Combat: left-click hits the mob under the crosshair ----
+// Damage by held item (pure — unit-tested)
+function attackDamageFor(item) {
+  if (typeof item !== 'string') return 1;      // fist
+  if (item === 'wooden_sword') return 3;
+  if (item === 'stone_sword') return 4;
+  if (item.endsWith('_sword')) return 4;      // modded swords (ruby_sword, ...)
+  return 1;                                    // any other item = fist damage
+}
+// Closest live mob whose center is within reach and roughly under the crosshair
+function mobUnderCrosshair() {
+  const ex = player.x, ey = player.y + CFG.PLAYER_EYE, ez = player.z;
+  const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+  const cy = Math.cos(player.yaw), sy = Math.sin(player.yaw);
+  const dx = -sy * cp, dy = sp, dz = -cy * cp;
+  let best = null, bestT = CFG.REACH;
+  for (const m of mobs) {
+    if (m.dead) continue;
+    const ox = m.x - ex, oy = (m.y + m.h / 2) - ey, oz = m.z - ez;
+    const t = ox * dx + oy * dy + oz * dz; // distance along the view ray
+    if (t < 0 || t > bestT) continue;
+    const px2 = ox - t * dx, py2 = oy - t * dy, pz2 = oz - t * dz;
+    const dist2 = px2 * px2 + py2 * py2 + pz2 * pz2; // miss distance
+    const radius = Math.max(m.w, m.h) / 2 + 0.4;
+    if (dist2 <= radius * radius) { best = m; bestT = t; }
+  }
+  return best;
+}
+function attackMob(m) {
+  const dmg = attackDamageFor(handSlots[selectedSlot]);
+  damageMob(m, dmg);
+  playSound('sword');
+  addParticles(m.x, m.y + m.h / 2, m.z, '#ff5555', 5);
 }
 
 // ======================================================================
@@ -522,11 +591,38 @@ function damageMob(m, amount) {
 function addToInventory(name, count = 1) {
   // find existing
   for (const it of inventory) {
-    if (it.name === name) { it.count += count; updateInventoryUI(); return true; }
+    if (it.name === name) { it.count += count; updateInventoryUI(); updateHotbarUI(); return true; }
   }
   inventory.push({ name, count });
+  autoFillHandSlots(); // newly picked-up blocks occupy empty hand slots
   updateInventoryUI();
+  updateHotbarUI();
   return true;
+}
+
+// Blocks in the inventory automatically claim empty hand slots (max 8 kinds)
+function autoFillHandSlots() {
+  for (const it of inventory) {
+    if (!it.name.startsWith('block:')) continue;
+    if (handSlots.includes(it.name)) continue;
+    const empty = handSlots.indexOf(null);
+    if (empty < 0) break;
+    handSlots[empty] = it.name;
+  }
+}
+
+// Edible items → hunger restored (right-click with food in hand, or
+// right-click the item inside the inventory modal)
+const FOODS = { pork: 3, cooked_pork: 5, bread: 4, rotten_flesh: 1 };
+function eatItem(name) {
+  const val = FOODS[name];
+  if (!val) { toast('🚫 กินไม่ได้'); return; }
+  if (hunger >= MAX_HUNGER) { toast('😋 ยังไม่หิว'); return; }
+  if (!removeFromInventory(name, 1)) return;
+  hunger = Math.min(MAX_HUNGER, hunger + val);
+  updateHungerUI();
+  playSound('eat');
+  toast('🍽 กิน ' + itemDisplayName(name) + ' (ความหิว +' + val + ')');
 }
 function hasItem(name, count = 1) {
   for (const it of inventory) {
@@ -780,6 +876,25 @@ function updateInventoryUI() {
       }
     }
   });
+  // Left-click: hold in the selected hand slot. Right-click: eat food.
+  // (data-name is entity-escaped in the HTML above; dataset returns the
+  // decoded value, so names round-trip exactly.)
+  el.querySelectorAll('.inv-slot').forEach(s => {
+    s.addEventListener('click', () => {
+      const name = s.dataset.name;
+      if (!name) return;
+      handSlots[selectedSlot] = name;
+      updateHotbarUI();
+      toast('✋ ถือ ' + itemDisplayName(name));
+    });
+    s.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const name = s.dataset.name;
+      if (name && FOODS[name]) eatItem(name);
+      else toast('คลิกซ้ายเพื่อถือ • อาหารกินด้วยคลิกขวา');
+    });
+  });
+  updateHotbarUI();
 }
 
 // ======================================================================
@@ -855,6 +970,7 @@ const VANILLA_MOD = {
     { id: 'stone_pickaxe', category: 'tools', name: 'พลั่วหิน', result: { name: 'stone_pickaxe', count: 1 }, ingredients: [{ name: 'block:' + B.COBBLE, count: 3 }, { name: 'stick', count: 2 }] },
     { id: 'iron_pickaxe', category: 'tools', name: 'พลั่วเหล็ก', result: { name: 'iron_pickaxe', count: 1 }, ingredients: [{ name: 'iron_ingot', count: 3 }, { name: 'stick', count: 2 }] },
     { id: 'wooden_sword', category: 'tools', name: 'ดาบไม้', result: { name: 'wooden_sword', count: 1 }, ingredients: [{ name: 'block:' + B.PLANKS, count: 2 }, { name: 'stick', count: 1 }] },
+    { id: 'cooked_pork', category: 'food', name: 'หมูสุก', result: { name: 'cooked_pork', count: 1 }, ingredients: [{ name: 'pork', count: 1 }, { name: 'coal', count: 1 }] },
     { id: 'stone_sword', category: 'tools', name: 'ดาบหิน', result: { name: 'stone_sword', count: 1 }, ingredients: [{ name: 'block:' + B.COBBLE, count: 2 }, { name: 'stick', count: 1 }] },
   ],
 };

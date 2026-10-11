@@ -132,10 +132,12 @@ const BLOCK_NAMES = {
   [B.CHEST]:'หีบ', [B.FURNACE]:'เตา'
 };
 
-// Hotbar order
+// Hotbar order (also the creative palette shown when fly mode is enabled)
 const HOTBAR = [B.GRASS, B.DIRT, B.STONE, B.SAND, B.WOOD, B.PLANKS, B.COBBLE, B.BRICK];
-// Add chest/furnace in extra slots (1-8 on number row)
-const HOTBAR_EXTRA = [B.CHEST, B.FURNACE, B.GLASS, B.DOOR, B.TORCH, B.GLOWSTONE, B.SANDSTONE, B.CACTUS];
+// Hand slots: what the player actually holds. Each slot holds an item name
+// ('block:8', 'stone_sword', 'bread', ...) or null. The hotbar UI renders
+// from this array; placing consumes the item unless fly (creative) is on.
+let handSlots = new Array(8).fill(null);
 
 // ======================================================================
 // SAVE SYSTEM
@@ -166,6 +168,7 @@ function saveGame() {
       metaB64: rleEncodeU8(meta),
       chests: chestData,
       sel: selectedSlot,
+      hand: handSlots,
       inv: inventory,
       hung: hunger,
       time: gameTime,

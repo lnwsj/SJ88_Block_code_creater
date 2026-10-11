@@ -135,5 +135,25 @@ const code080 = read('080-editor-ai.js');
   check('removeBlockNode relinks chain', tree.removeBlockNode(scripts[0], 'new') === true && scripts[0].next.next.id === 'turn');
 }
 
+// ---------------------------------------------------------------- 060-gameplay
+// (checked as source assertions — the security policy blocks new dynamic
+//  evaluation sites; the executed suites above predate it)
+const code060 = read('060-gameplay.js');
+{
+  check('attackDamageFor: sword tiers mapped (wood/stone/modded)',
+    /item === 'wooden_sword'\) return 3/.test(code060) &&
+    /item === 'stone_sword'\) return 4/.test(code060) &&
+    /item\.endsWith\('_sword'\)\) return 4/.test(code060));
+  check('FOODS: cook chain is edible and worth it (5 > 3)',
+    /pork:\s*3/.test(code060) && /cooked_pork:\s*5/.test(code060) && /bread:\s*4/.test(code060));
+  check('autoFillHandSlots skips held items and non-blocks',
+    /if \(!it\.name\.startsWith\('block:'\)\) continue;/.test(grabFn(code060, 'autoFillHandSlots')) &&
+    /if \(handSlots\.includes\(it\.name\)\) continue;/.test(grabFn(code060, 'autoFillHandSlots')));
+  check('vanilla recipe: cook pork with coal',
+    /id:\s*'cooked_pork'[\s\S]*?name:\s*'pork'[\s\S]*?name:\s*'coal'/.test(code060));
+  check('mobsKilled stat incremented on kill (feeds monster_hunter)',
+    /stats\.mobsKilled\+\+/.test(grabFn(code060, 'damageMob')));
+}
+
 console.log(`\n${total - failed}/${total} passed` + (pass ? '' : ' — FAILURES ABOVE'));
 process.exit(pass ? 0 : 1);

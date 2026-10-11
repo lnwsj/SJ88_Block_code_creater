@@ -764,67 +764,25 @@ handleMPMessage = function(msg) {
   }
 };
 
-// Hook break/place to broadcast block changes
+// Broadcast successful block edits. All gameplay logic (mob attack, drops,
+// chest contents, hand-item consumption) lives in the base breakBlock/
+// placeBlock in 050 — these wrappers only relay the result to the room.
 const _origBreakMP = breakBlock;
 breakBlock = function() {
-  const r = raycast();
-  if (!r) return;
-  const now = performance.now();
-  if (now - lastBreakTime < 200) return;
-  lastBreakTime = now;
-  const b = r.block;
-  if (b === B.BEDROCK) { toast('⛏ หินฐานทุบไม่ได้'); return; }
-  setBlock(r.x, r.y, r.z, B.AIR); // marks the affected chunks dirty
-  dropBlock(b);
-  addParticles(r.x + 0.5, r.y + 0.5, r.z + 0.5, BLOCK_COLORS[b] || '#cccccc', 10);
-  // Breaking a chest returns its contents to the inventory
-  if (b === B.CHEST) {
-    const k = chestKey(r.x, r.y, r.z);
-    const ch = chests.get(k);
-    if (ch) {
-      for (const it of ch.items) if (it) addToInventory(it.name, it.count);
-      chests.delete(k);
-      toast('📦 หีบแตก — ของในหีบกลับเข้าคลัง');
-    }
+  const hit = _origBreakMP();
+  if (hit && mp.connected && mp.roomCode) {
+    sendMP({ type: 'block', action: 'break', x: hit.x, y: hit.y, z: hit.z, block: 0 });
   }
-  stats.blocksBroken[b] = (stats.blocksBroken[b] || 0) + 1;
-  playSound(SOUND_BLOCKS[b] || 'break');
-  // Broadcast
-  if (mp.connected && mp.roomCode) {
-    sendMP({ type: 'block', action: 'break', x: r.x, y: r.y, z: r.z, block: 0 });
-  }
-  // Mob aggro
-  for (const m of mobs) {
-    const dx = m.x - r.x, dz = m.z - r.z;
-    if (Math.sqrt(dx*dx + dz*dz) < 8 && MOB_TYPES[m.type].hostile) m.target = player;
-  }
-  toast('⛏ ทุบ ' + BLOCK_NAMES[b]);
+  return hit;
 };
 
 const _origPlaceMP = placeBlock;
 placeBlock = function() {
-  const r = raycast();
-  if (!r) return;
-  const nx = r.normal[0], ny = r.normal[1], nz = r.normal[2];
-  const px = Math.floor(player.x), py = Math.floor(player.y), pz = Math.floor(player.z);
-  const px2 = Math.floor(player.x + 0.3), py2 = Math.floor(player.y + 1.5), pz2 = Math.floor(player.z + 0.3);
-  if ((nx === px && (ny === py || ny === py2) && nz === pz) ||
-      (nx === px2 && (ny === py || ny === py2) && nz === pz2)) {
-    toast('❌ วางตรงนี้ไม่ได้');
-    return;
+  const placed = _origPlaceMP();
+  if (placed && mp.connected && mp.roomCode) {
+    sendMP({ type: 'block', action: 'place', x: placed.x, y: placed.y, z: placed.z, block: placed.block });
   }
-  const blockId = HOTBAR[selectedSlot];
-  setBlock(nx, ny, nz, blockId); // marks the affected chunks dirty
-  stats.blocksPlaced++;
-  if (blockId === B.DOOR) stats.doorsPlaced++;
-  playSound(PLACE_SOUND[blockId] || 'place');
-  if (stats.blocksPlaced >= 1) awardAchievement('first_step');
-  if (stats.blocksPlaced >= 50) awardAchievement('builder');
-  // Broadcast
-  if (mp.connected && mp.roomCode) {
-    sendMP({ type: 'block', action: 'place', x: nx, y: ny, z: nz, block: blockId });
-  }
-  toast('🧱 วาง ' + BLOCK_NAMES[blockId]);
+  return placed;
 };
 
 // Cleanup on disconnect

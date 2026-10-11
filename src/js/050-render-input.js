@@ -217,6 +217,10 @@ let selectedSlot = 0;
 const keys = {};
 let mouseLocked = false;
 let lastBreakTime = 0;
+// Air supply for drowning (refills instantly when the head is above water)
+const MAX_AIR = 10;
+let air = MAX_AIR;
+let _drownAcc = 0;
 
 // ======================================================================
 // INPUT
@@ -253,14 +257,12 @@ document.addEventListener('keydown', (e) => {
     }
   }
   if (e.code === 'KeyF' && mouseLocked) {
-    player.flyMode = !player.flyMode;
-    player.vy = 0;
-    toast(player.flyMode ? '🪽 โหมดบิน เปิด' : '🚶 โหมดเดิน เปิด');
+    toggleFly();
   }
   // Number keys 1-8 for hotbar
   if (e.code.startsWith('Digit')) {
     const n = parseInt(e.code.slice(5));
-    if (n >= 1 && n <= HOTBAR.length) {
+    if (n >= 1 && n <= handSlots.length) {
       selectedSlot = n - 1;
       updateHotbarUI();
     }
@@ -293,9 +295,17 @@ canvas.addEventListener('mousedown', (e) => {
   if (e.button === 0) breakBlock();
   else if (e.button === 2) placeBlock();
   else if (e.button === 1) {
-    // middle = pick block
+    // middle = pick the looked-at block into the selected hand slot
     const r = raycast();
-    if (r) { selectedSlot = HOTBAR.indexOf(r.block); if (selectedSlot<0) selectedSlot=0; updateHotbarUI(); }
+    if (r) {
+      const name = 'block:' + r.block;
+      if (player.flyMode || hasItem(name, 1)) {
+        handSlots[selectedSlot] = name;
+        updateHotbarUI();
+      } else {
+        toast('ไม่มี ' + (BLOCK_NAMES[r.block] || 'บล็อกนี้') + ' ในคลัง');
+      }
+    }
   }
 });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -443,7 +453,7 @@ const actionHandlers = {
     if (player.flyMode) player.vy = CFG.FLY_SPEED;
     else if (player.onGround) { player.vy = CFG.JUMP_VEL; player.onGround = false; }
   },
-  fly: () => { player.flyMode = !player.flyMode; toast(player.flyMode ? '✈ Flight ON' : '🚶 Flight OFF'); },
+  fly: () => toggleFly(),
   break: () => breakBlock(),
   place: () => placeBlock(),
   inv: () => { if (typeof openInventory === 'function') openInventory(); else document.getElementById('inv-modal')?.classList.add('show'); },
@@ -488,8 +498,8 @@ canvas.addEventListener('touchstart', (e) => {
 
 canvas.addEventListener('wheel', (e) => {
   if (!mouseLocked) return;
-  if (e.deltaY > 0) selectedSlot = (selectedSlot + 1) % HOTBAR.length;
-  else selectedSlot = (selectedSlot - 1 + HOTBAR.length) % HOTBAR.length;
+  if (e.deltaY > 0) selectedSlot = (selectedSlot + 1) % handSlots.length;
+  else selectedSlot = (selectedSlot - 1 + handSlots.length) % handSlots.length;
   updateHotbarUI();
   e.preventDefault();
 }, { passive: false });
@@ -538,32 +548,83 @@ function raycast() {
   return null;
 }
 
+// Break a block OR attack the mob under the crosshair (left-click action).
+// Returns { x, y, z, block } on a successful block break, else null —
+// the MP layer (070) broadcasts whatever comes back.
 function breakBlock() {
-  const r = raycast();
-  if (!r) return;
   const now = performance.now();
-  if (now - lastBreakTime < 200) return;
+  if (now - lastBreakTime < 200) return null;
+  // Attack takes priority: hit the mob under the crosshair, if any
+  const target = mobUnderCrosshair();
+  if (target) {
+    lastBreakTime = now;
+    attackMob(target);
+    return null;
+  }
+  const r = raycast();
+  if (!r) return null;
   lastBreakTime = now;
-  setBlock(r.x, r.y, r.z, B.AIR);
-  meshRebuildNeeded = true;
-  toast('⛏ ทุบบล็อก');
+  const b = r.block;
+  if (b === B.BEDROCK) { toast('⛏ หินฐานทุบไม่ได้'); return null; }
+  setBlock(r.x, r.y, r.z, B.AIR); // marks the affected chunks dirty
+  dropBlock(b);
+  addParticles(r.x + 0.5, r.y + 0.5, r.z + 0.5, BLOCK_COLORS[b] || '#cccccc', 10);
+  // Breaking a chest returns its contents to the inventory
+  if (b === B.CHEST) {
+    const k = chestKey(r.x, r.y, r.z);
+    const ch = chests.get(k);
+    if (ch) {
+      for (const it of ch.items) if (it) addToInventory(it.name, it.count);
+      chests.delete(k);
+      toast('📦 หีบแตก — ของในหีบกลับเข้าคลัง');
+    }
+  }
+  stats.blocksBroken[b] = (stats.blocksBroken[b] || 0) + 1;
+  playSound(SOUND_BLOCKS[b] || 'break');
+  // Mob aggro
+  for (const m of mobs) {
+    const dx = m.x - r.x, dz = m.z - r.z;
+    if (Math.sqrt(dx*dx + dz*dz) < 8 && MOB_TYPES[m.type].hostile) m.target = player;
+  }
+  toast('⛏ ทุบ ' + BLOCK_NAMES[b]);
+  return { x: r.x, y: r.y, z: r.z, block: b };
 }
 
+// Place the block held in the selected hand slot — or EAT when food is in
+// hand. Returns { x, y, z, block } on success, else null (MP broadcasts it).
 function placeBlock() {
+  const handItem = handSlots[selectedSlot];
+  // Right-click with food in hand = eat
+  if (handItem && FOODS[handItem]) { eatItem(handItem); return null; }
   const r = raycast();
-  if (!r) return;
+  if (!r) return null;
+  if (!handItem || !handItem.startsWith('block:')) {
+    toast(handItem ? '🚫 ' + itemDisplayName(handItem) + ' วางไม่ได้' : '🚫 ช่องมือว่าง — กด E แล้วคลิกซ้ายของเพื่อถือ');
+    return null;
+  }
+  const blockId = parseInt(handItem.slice(6));
+  // Survival must own the item; fly mode = creative, placement is free
+  if (!player.flyMode && !hasItem(handItem, 1)) {
+    toast('❌ ' + (BLOCK_NAMES[blockId] || 'บล็อกนี้') + ' หมดแล้ว');
+    return null;
+  }
   const nx = r.normal[0], ny = r.normal[1], nz = r.normal[2];
-  // Don't place inside player
   const px = Math.floor(player.x), py = Math.floor(player.y), pz = Math.floor(player.z);
   const px2 = Math.floor(player.x + 0.3), py2 = Math.floor(player.y + 1.5), pz2 = Math.floor(player.z + 0.3);
   if ((nx === px && (ny === py || ny === py2) && nz === pz) ||
       (nx === px2 && (ny === py || ny === py2) && nz === pz2)) {
     toast('❌ วางตรงนี้ไม่ได้');
-    return;
+    return null;
   }
-  setBlock(nx, ny, nz, HOTBAR[selectedSlot]);
-  meshRebuildNeeded = true;
-  toast('🧱 วาง ' + BLOCK_NAMES[HOTBAR[selectedSlot]]);
+  setBlock(nx, ny, nz, blockId); // marks the affected chunks dirty
+  if (!player.flyMode) removeFromInventory(handItem, 1);
+  stats.blocksPlaced++;
+  if (blockId === B.DOOR) stats.doorsPlaced++;
+  playSound(PLACE_SOUND[blockId] || 'place');
+  if (stats.blocksPlaced >= 1) awardAchievement('first_step');
+  if (stats.blocksPlaced >= 50) awardAchievement('builder');
+  toast('🧱 วาง ' + BLOCK_NAMES[blockId]);
+  return { x: nx, y: ny, z: nz, block: blockId };
 }
 
 // ======================================================================
@@ -631,6 +692,23 @@ function isGameActive() {
   return gameStarted && !anyModalOpen();
 }
 
+// Fly = creative mode: free block placement, no hunger/fall damage, and
+// empty hand slots fill with a starter palette for free building.
+function toggleFly() {
+  player.flyMode = !player.flyMode;
+  player.vy = 0;
+  if (player.flyMode) {
+    for (let i = 0; i < handSlots.length; i++) {
+      if (!handSlots[i]) handSlots[i] = 'block:' + HOTBAR[i];
+    }
+    if (air < MAX_AIR) { air = MAX_AIR; _drownAcc = 0; updateAirUI(); }
+    updateHotbarUI();
+    toast('🪽 โหมดบิน (ครีเอทีฟ) — วางบล็อกฟรี');
+  } else {
+    toast('🚶 โหมดเดิน (เซอร์ไววัล) — วางบล็อกต้องมีของ');
+  }
+}
+
 function updatePlayer(dt) {
   if (!isGameActive()) return;
   // Movement input
@@ -654,13 +732,43 @@ function updatePlayer(dt) {
     if (keys['Space']) player.vy = CFG.FLY_SPEED;
     if (keys['ShiftLeft'] || keys['ShiftRight']) player.vy = -CFG.FLY_SPEED;
   } else {
-    // Apply friction
     player.vx = mvx * speed;
     player.vz = mvz * speed;
-    // Gravity
-    player.vy += CFG.GRAVITY * dt;
-    if (player.vy < -30) player.vy = -30;
-    // Check ground
+    // --- Water physics: buoyancy, sluggish movement, no fall damage ---
+    const feetIn = getBlock(Math.floor(player.x), Math.floor(player.y + 0.2), Math.floor(player.z)) === B.WATER;
+    const headIn = getBlock(Math.floor(player.x), Math.floor(player.y + CFG.PLAYER_EYE), Math.floor(player.z)) === B.WATER;
+    if (feetIn || headIn) {
+      if (!player._inWater) {
+        player._inWater = true;
+        if (player.vy < -4) {
+          playSound('splash');
+          addParticles(player.x, player.y + 1, player.z, '#7ab8e8', 14);
+        }
+      }
+      fallStart = 0; // entering water cancels accumulated fall damage
+      player.vx *= 0.6;
+      player.vz *= 0.6;
+      player.vy += CFG.GRAVITY * 0.3 * dt; // gentle sinking
+      if (player.vy < -2.5) player.vy = -2.5;
+      if (keys['Space']) player.vy = Math.min(player.vy + 24 * dt, 3.0); // swim up
+    } else {
+      if (player._inWater) player._inWater = false;
+      player.vy += CFG.GRAVITY * dt;
+      if (player.vy < -30) player.vy = -30;
+    }
+    // --- Air / drowning ---
+    if (headIn) {
+      air -= dt / 1.4;
+      if (air <= 0) {
+        air = 0;
+        _drownAcc += dt;
+        if (_drownAcc >= 1) { _drownAcc = 0; damagePlayer(1, 'drown'); }
+      }
+    } else if (air < MAX_AIR) {
+      air = MAX_AIR;
+      _drownAcc = 0;
+    }
+    updateAirUI();
     player.onGround = false;
   }
 
@@ -887,33 +995,30 @@ function render() {
 function buildHotbarUI() {
   const hb = document.getElementById('hotbar');
   hb.innerHTML = '';
-  HOTBAR.forEach((bid, i) => {
+  for (let i = 0; i < handSlots.length; i++) {
     const slot = document.createElement('div');
     slot.className = 'slot' + (i === selectedSlot ? ' active' : '');
     slot.dataset.idx = i;
-    // Generate icon
     const icon = document.createElement('canvas');
     icon.width = icon.height = 32;
-    const ctx = icon.getContext('2d');
-    // simple block preview
-    ctx.fillStyle = '#222';
-    ctx.fillRect(0, 0, 32, 32);
-    drawBlockIcon(ctx, bid, 2, 2, 28);
     slot.appendChild(icon);
     const num = document.createElement('span');
     num.className = 'num';
-    num.textContent = (i+1);
+    num.textContent = (i + 1);
     slot.appendChild(num);
     const lbl = document.createElement('span');
     lbl.className = 'lbl';
-    lbl.textContent = BLOCK_NAMES[bid] || '?';
     slot.appendChild(lbl);
+    const cnt = document.createElement('span');
+    cnt.className = 'hcount';
+    slot.appendChild(cnt);
     slot.addEventListener('click', () => {
       selectedSlot = i;
       updateHotbarUI();
     });
     hb.appendChild(slot);
-  });
+  }
+  updateHotbarUI();
 }
 
 function drawBlockIcon(ctx, bid, x, y, s) {
@@ -951,11 +1056,46 @@ function drawBlockIcon(ctx, bid, x, y, s) {
   ctx.strokeRect(x+.5, y+.5, s-1, s-1);
 }
 
+// Human-readable name for any hand/inventory item ('block:N' or item id)
+function itemDisplayName(name) {
+  if (!name) return '';
+  if (name.startsWith('block:')) {
+    const bid = parseInt(name.slice(6));
+    return BLOCK_NAMES[bid] || ('block:' + bid);
+  }
+  const items = getItems();
+  return (items.get(name) || { name }).name;
+}
+function invCount(name) {
+  for (const it of inventory) if (it.name === name) return it.count;
+  return 0;
+}
+
 function updateHotbarUI() {
   const slots = document.querySelectorAll('#hotbar .slot');
-  slots.forEach((s, i) => s.className = 'slot' + (i === selectedSlot ? ' active' : ''));
-  document.getElementById('sel-name').textContent = BLOCK_NAMES[HOTBAR[selectedSlot]];
-  document.getElementById('bname').textContent = BLOCK_NAMES[HOTBAR[selectedSlot]];
+  slots.forEach((s, i) => {
+    s.className = 'slot' + (i === selectedSlot ? ' active' : '');
+    const item = handSlots[i];
+    const icon = s.querySelector('canvas');
+    const lbl = s.querySelector('.lbl');
+    const cnt = s.querySelector('.hcount');
+    if (!icon || !lbl || !cnt) return;
+    const ctx = icon.getContext('2d');
+    ctx.clearRect(0, 0, 32, 32);
+    if (!item) {
+      lbl.textContent = '—';
+      cnt.textContent = '';
+      return;
+    }
+    if (item.startsWith('block:')) drawBlockIcon(ctx, parseInt(item.slice(6)), 2, 2, 28);
+    else drawItemIcon(ctx, item, 2, 2, 28);
+    lbl.textContent = itemDisplayName(item);
+    const n = invCount(item);
+    // Creative (fly) shows infinite for blocks; survival shows the real count
+    cnt.textContent = (player.flyMode && item.startsWith('block:')) ? '∞' : 'x' + n;
+  });
+  const sel = handSlots[selectedSlot];
+  document.getElementById('sel-name').textContent = sel ? itemDisplayName(sel) : 'ว่าง (กด E เลือกของ)';
 }
 
 let toastTimer;
@@ -984,6 +1124,9 @@ function startNewWorld(preview = false) {
   hunger = MAX_HUNGER;
   gameTime = 6000;
   inventory = [];
+  handSlots = new Array(8).fill(null);
+  air = MAX_AIR;
+  _drownAcc = 0;
   mobs = [];
   // reset stats
   stats.stepsWalked = 0;
@@ -1044,9 +1187,16 @@ function loadSavedWorld() {
   player.yaw = data.yaw; player.pitch = data.pitch;
   player.flyMode = data.fly || false;
   player.hp = data.hp || CFG.MAX_HP;
-  selectedSlot = data.sel || 0;
+  selectedSlot = Math.min(7, data.sel || 0);
   // Restore new state
   inventory = data.inv || [];
+  // Hand slots (v3.1+): fall back to auto-filling from inventory blocks
+  handSlots = (Array.isArray(data.hand) && data.hand.length === 8)
+    ? data.hand.slice()
+    : new Array(8).fill(null);
+  autoFillHandSlots();
+  air = MAX_AIR;
+  _drownAcc = 0;
   hunger = data.hung || 20;
   gameTime = data.time || 6000;
   unlockedAch = new Set(data.ach || []);
