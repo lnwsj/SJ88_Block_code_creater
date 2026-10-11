@@ -40,25 +40,53 @@
 
 ```
 SJ88_Block_code_creater/
-├── index.html              # เกม single-player (185KB, 4,600+ lines)
-├── README.md
-├── .gitignore
+├── index.html              # เกม single-file (BUILD OUTPUT — สร้างจาก src/)
+├── src/                    # ★ SOURCE OF TRUTH — แก้โค้ดที่นี่
+│   ├── head.html / mid.html / tail.html
+│   ├── style.css
+│   └── js/
+│       ├── 010-config.js        # CFG, blocks, save system + RLE
+│       ├── 020-atlas.js         # procedural texture atlas
+│       ├── 030-world.js         # world generation
+│       ├── 040-mesh.js          # chunked mesh + dirty tracking
+│       ├── 050-render-input.js  # WebGL, camera, input, mobile, loop
+│       ├── 060-gameplay.js      # mobs, inventory, crafting, chests, sounds
+│       ├── 070-multiplayer.js   # WS client, chat, world browser sync
+│       └── 080-editor-ai.js     # block editor, executor, AI generator, PWA
+├── scripts/build.js        # รวม src/ → index.html + multiplayer.html
+├── tests/run.js            # unit tests (worldgen/RLE/AI validator/editor)
+├── .github/workflows/ci.yml# CI: build + เช็คไฟล์ build สด + รันเทสทั้งหมด
 ├── mods/
 │   └── ruby_mod.json       # Mod ตัวอย่าง
 ├── multiplayer/
 │   ├── server/
-│   │   ├── server.js       # Unified server (rooms + persistent worlds + REST API)
+│   │   ├── server.js       # Unified server (rooms + persistent worlds + REST + PWA)
+│   │   ├── test.js         # integration test (npm test)
 │   │   ├── minicraft-mp.service  # systemd unit
 │   │   ├── package.json
 │   │   └── package-lock.json
 │   ├── deploy/
-│   │   └── multiplayer.html # เกม multiplayer (สำเนาของ index.html)
+│   │   └── multiplayer.html # เกม multiplayer (build output เดียวกับ index.html)
 │   ├── deploy.sh           # Deploy แบบ SSH key (ไม่มีรหัสผ่านใน repo)
 │   └── deploy-mini-mp.py   # (เดิม) deploy script ของเจ้าของ repo
 └── docs/
     ├── MODDING.md          # คู่มือสร้าง mod
-    └── DEPLOY.md           # คู่มือ deploy
+    ├── DEPLOY.md           # คู่มือ deploy
+    └── ARCHITECTURE.md     # สถาปัตยกรรมโค้ด
 ```
+
+## 🛠️ Development (แก้โค้ด → build)
+
+`index.html` เป็น **ไฟล์ build** — แก้เกมที่ไฟล์ใน `src/` แล้วรัน build:
+
+```bash
+node scripts/build.js          # รวม src/ → index.html + multiplayer/deploy/multiplayer.html
+node scripts/build.js --check  # เช็คว่า build output สด (CI ใช้อันนี้)
+node tests/run.js              # unit tests
+cd multiplayer/server && npm test   # integration tests
+```
+
+CI (GitHub Actions) จะ build เองและ fail ทันทีถ้า commit ไฟล์ build ที่ล้าสมัย
 
 ## 🚀 Quick Start
 

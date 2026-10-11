@@ -59,6 +59,16 @@ SSH_HOST=root@YOUR_VPS_IP ./deploy.sh
 journalctl -u minicraft-mp -n 30 | grep "Admin token"
 ```
 
+### 📱 PWA (เล่นออฟไลน์บนมือถือ)
+
+Server ใหม่ serve `/sw.js` + `/manifest.webmanifest` ให้เอง — เปิดเกมผ่าน
+server ครั้งเดียว จากนั้นเพิ่มหน้าจอหลัก (Add to Home screen) แล้วเล่นออฟไลน์ได้
+(service worker เก็บ cache แบบ stale-while-revalidate — เปิดครั้งถัดไปพร้อม
+อัปเดตเองเมื่อออนไลน์)
+
+**เวลาอัปเดตเกมบนเซิร์ฟเวอร์**: bump ชื่อ cache ใน `sw.js` route ของ
+`server.js` (`'minicraft-v1'` → `'minicraft-v2'`) เพื่อบังคับ client refresh
+
 ### systemd Service
 
 unit พร้อมอยู่แล้วที่ `multiplayer/server/minicraft-mp.service` (deploy.sh ติดตั้งให้) — ถ้าทำมือ:

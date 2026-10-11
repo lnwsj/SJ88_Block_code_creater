@@ -1,27 +1,37 @@
 # 🏗️ Architecture
 
+## 🔨 Source layout & build
+
+เกมมาจาก `src/` (แก้โค้ดที่นี่) → `node scripts/build.js` รวมเป็น
+`index.html` + `multiplayer/deploy/multiplayer.html` ไฟล์เดียว (build output
+ถูก commit ไว้ด้วยเพื่อแจกง่าย — CI เช็คว่าไม่ล้าสมัยด้วย `--check`)
+
+```
+src/head.html + style.css + mid.html + src/js/*.js (เรียงตามเลข) + tail.html
+  → scripts/build.js → index.html (≡ multiplayer/deploy/multiplayer.html)
+```
+
+โมดูล JS (ตามลำดับในไฟล์ build):
+| ไฟล์ | เนื้อหา |
+|------|---------|
+| 010-config | CFG, block IDs, save system + RLE |
+| 020-atlas | procedural texture atlas (Canvas 2D) |
+| 030-world | world gen, biomes, structures |
+| 040-mesh | chunked meshes + dirty tracking + frustum culling |
+| 050-render-input | WebGL setup, camera/math, input, mobile touch, game loop |
+| 060-gameplay | sounds, day/night, hunger, mobs, inventory, crafting, chests, redstone |
+| 070-multiplayer | WS client, chat, remote players, world sync |
+| 080-editor-ai | block editor, executor, AI generator, world browser, PWA |
+
 ## 📁 File Layout
 
 ```
 SJ88_Block_code_creater/
-├── index.html              # 185KB single-player game
-├── README.md
-├── .gitignore
-├── mods/
-│   └── ruby_mod.json       # Sample mod
-├── multiplayer/
-│   ├── server/
-│   │   ├── server.js              # UNIFIED: HTTP+WS+persistent worlds+REST API
-│   │   └── minicraft-mp.service   # systemd unit
-│   ├── deploy/
-│   │   └── multiplayer.html       # MP game (copy of index.html)
-│   ├── deploy.sh                  # SSH-key deploy (no credentials in repo)
-│   └── deploy-mini-mp.py          # legacy deploy script (owner's)
-└── docs/
-    ├── MODDING.md
-    ├── DEPLOY.md
-    └── ARCHITECTURE.md
-```
+├── index.html              # BUILD OUTPUT (single-file game)
+├── src/                    # source of truth (ดูตารางด้านบน)
+├── scripts/build.js        # src/ → single HTML
+├── tests/run.js            # unit tests (รันโค้ดจริงจาก src/)
+├── .github/workflows/ci.yml# build + stale check + tests
 
 ## 🎮 Game Architecture (index.html)
 

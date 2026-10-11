@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0a0a14">
-<link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22MiniCraft%203D%22%2C%22short_name%22%3A%22MiniCraft%22%2C%22start_url%22%3A%22%2F%22%2C%22display%22%3A%22fullscreen%22%2C%22orientation%22%3A%22landscape%22%2C%22background_color%22%3A%22%230a0a14%22%2C%22theme_color%22%3A%22%23f59e0b%22%2C%22icons%22%3A%5B%5D%7D">
+<link rel="manifest" href="manifest.webmanifest">
 <title>MiniCraft 3D - มายคราฟออฟไลน์</title>
 <style>
   :root{
@@ -4812,11 +4812,7 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     showAchievements();
   }
-  if (e.code === 'KeyH' && mouseLocked) {
-    e.preventDefault();
-    healPlayer(5);
-    toast('💚 รักษา +5 HP');
-  }
+  // (H-key debug heal removed — it was a leftover cheat in production)
 });
 
 // Achievement viewer
@@ -4957,7 +4953,7 @@ if (startPanel) {
     <div class="row"><span>ใช้ของ (คาน/โต๊ะ)</span><span class="key">Shift+คลิกขวา</span></div>
     <div class="row"><span>ดูความสำเร็จ</span><span class="key">B</span></div>
     <div class="row"><span>สลับโหมดแผนที่</span><span class="key">M</span></div>
-    <div class="row"><span>รักษา (debug)</span><span class="key">H</span></div>
+    <div class="row"><span>รันสคริปต์บอท</span><span class="key">/คำสั่ง ในแชท</span></div>
   `;
   startPanel.parentNode.insertBefore(extra, startPanel.nextSibling);
 }
@@ -8220,6 +8216,13 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(updateWorldCount, 1000);
   setInterval(updateWorldCount, 30000);
 });
+
+// PWA offline support: the unified Node server also serves /sw.js and
+// /manifest.webmanifest. Registration is skipped silently on file:// or on
+// hosts that don't provide them (plain static hosting still works fine).
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  try { navigator.serviceWorker.register('/sw.js').catch(() => {}); } catch (e) { /* ignore */ }
+}
 
 </script>
 </body>

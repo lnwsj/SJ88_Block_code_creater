@@ -310,6 +310,52 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ---- PWA: manifest + service worker (lets the game play offline on
+  // mobile after the first visit). Served here so the game itself stays a
+  // single HTML file; on static hosts without these the client skips
+  // registration silently.
+  if (pathOnly === '/manifest.webmanifest') {
+    const manifest = {
+      name: 'MiniCraft 3D', short_name: 'MiniCraft',
+      start_url: '/', display: 'fullscreen', orientation: 'landscape',
+      background_color: '#0a0a14', theme_color: '#f59e0b', icons: [],
+    };
+    jsonEnd(200, manifest);
+    return;
+  }
+  if (pathOnly === '/sw.js') {
+    // Stale-while-revalidate: instant loads offline, self-updates online.
+    // Bump CACHE when shipping a new game build so clients refresh.
+    const sw = [
+      "const CACHE = 'minicraft-v1';",
+      "self.addEventListener('install', e => {",
+      "  e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/', '/multiplayer.html', '/manifest.webmanifest'])));",
+      "  self.skipWaiting();",
+      "});",
+      "self.addEventListener('activate', e => {",
+      "  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));",
+      "});",
+      "self.addEventListener('fetch', e => {",
+      "  if (e.request.method !== 'GET') return;",
+      "  const url = new URL(e.request.url);",
+      "  if (url.origin !== location.origin || url.pathname.startsWith('/api/')) return; // API always live",
+      "  e.respondWith(",
+      "    caches.match(e.request).then(hit => {",
+      "      const live = fetch(e.request).then(res => {",
+      "        const copy = res.clone();",
+      "        caches.open(CACHE).then(c => c.put(e.request, copy));",
+      "        return res;",
+      "      }).catch(() => hit);",
+      "      return hit || live;",
+      "    })",
+      "  );",
+      "});",
+    ].join('\n');
+    res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
+    res.end(sw);
+    return;
+  }
+
   // List worlds (open — needed by the in-game World Browser)
   if (pathOnly === '/api/worlds' && req.method === 'GET') {
     jsonEnd(200, listWorlds());
@@ -467,6 +513,10 @@ wss.on('connection', (ws) => {
       if (myRoom.hostId === playerId) {
         const world = worldFromClient(msg.world);
         if (world) {
+          // A payload without a chests field must not wipe stored chests
+          if (!('chests' in msg.world) && myRoom.world && myRoom.world.chests) {
+            world.chests = myRoom.world.chests;
+          }
           myRoom.world = world;
           myRoom.lastActivity = Date.now();
           for (const [, p] of myRoom.players) {
@@ -486,6 +536,10 @@ wss.on('connection', (ws) => {
       if (myRoom.hostId === playerId) {
         const world = worldFromClient(msg.world);
         if (world) {
+          // A save without a chests field must not wipe stored chests
+          if (!('chests' in msg.world) && myRoom.world && myRoom.world.chests) {
+            world.chests = myRoom.world.chests;
+          }
           // Keep identity fields from the current room world
           world.createdAt = myRoom.world?.createdAt;
           world.name = myRoom.world?.name;

@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build single-file game from src/
+        run: node scripts/build.js
+
+      - name: Verify built files are committed and up to date
+        run: |
+          git config user.name ci && git config user.email ci@example.com
+          git add index.html multiplayer/deploy/multiplayer.html
+          git diff --cached --exit-code || (echo "::error::index.html / multiplayer.html are stale - run: node scripts/build.js" && exit 1)
+
+      - name: Syntax-check game bundle + server
+        run: |
+          node -e "new Function(require('fs').readFileSync('index.html','utf8').match(/<script>([\s\S]*?)<\/script>/)[1]); console.log('game bundle syntax OK')"
+          node --check multiplayer/server/server.js
+
+      - name: Unit tests (worldgen / RLE / AI validator / editor trees)
+        run: node tests/run.js
+
+      - name: Integration test (rooms, persistence, migration, REST)
+        working-directory: multiplayer/server
+        run: |
+          npm ci
+          npm test

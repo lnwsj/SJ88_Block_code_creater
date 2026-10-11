@@ -1,0 +1,369 @@
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="crosshair"></div>
+  <div id="info">
+    <b>🟢 MiniCraft 3D</b><br>
+    FPS: <span id="fps">0</span><br>
+    XYZ: <span id="pos">0,0,0</span><br>
+    Block: <span id="bname">-</span>
+  </div>
+  <div id="debug">
+    Seed: <span id="dseed">-</span><br>
+    Faces: <span id="dfaces">0</span><br>
+    Vertices: <span id="dverts">0</span><br>
+    <span id="dchunk">-</span>
+  </div>
+  <div id="hud-time"><span class="time-icon" id="time-icon">☀️</span><span id="time-text">เที่ยง</span></div>
+  <div id="hud-hp" title="หัวใจ"></div>
+  <div id="hud-hunger" title="ความหิว"></div>
+  <div id="minimap"><canvas id="mmcanvas" width="120" height="120"></canvas></div>
+  <div id="save-indicator"></div>
+  <div id="selected-preview">บล็อก: <span id="sel-name">หญ้า</span></div>
+  <div id="hotbar"></div>
+  <!-- Mobile touch controls (shown only on touch devices) -->
+  <div id="mobile-controls">
+    <div id="mobile-joystick">
+      <div id="mobile-joystick-base"></div>
+      <div id="mobile-joystick-thumb"></div>
+    </div>
+    <div id="mobile-look"></div>
+    <div id="mobile-buttons">
+      <button class="mob-btn mob-jump" data-action="jump">⬆</button>
+      <button class="mob-btn mob-fly" data-action="fly">✈</button>
+      <button class="mob-btn mob-break" data-action="break">⛏</button>
+      <button class="mob-btn mob-place" data-action="place">🧱</button>
+      <button class="mob-btn mob-inv" data-action="inv">🎒</button>
+      <button class="mob-btn mob-menu" data-action="menu">☰</button>
+    </div>
+  </div>
+</div>
+<div id="day-tint" class="day"></div>
+<div id="hurt-flash"></div>
+<div id="ach-popup">
+  <div class="ach-title">🏆 ความสำเร็จ</div>
+  <div class="ach-name" id="ach-name">-</div>
+  <div class="ach-desc" id="ach-desc">-</div>
+</div>
+
+<div id="start-screen">
+  <h1>⛏ MiniCraft 3D <span style="font-size:24px;color:#4a9eff">ONLINE</span></h1>
+  <div class="sub">เกมมายคราฟสามมิติ — เล่นเดี่ยวออฟไลน์ หรือเล่นออนไลน์กับเพื่อน (สูงสุด 8 คน)</div>
+
+  <div class="panel">
+    <h3>⌨️ วิธีเล่น</h3>
+    <div class="row"><span>เดิน</span><span class="key">W A S D</span></div>
+    <div class="row"><span>กระโดด</span><span class="key">Space</span></div>
+    <div class="row"><span>วิ่ง</span><span class="key">Shift</span></div>
+    <div class="row"><span>หมุนกล้อง</span><span class="key">เมาส์</span></div>
+    <div class="row"><span>ทุบบล็อก</span><span class="key">คลิกซ้าย</span></div>
+    <div class="row"><span>วางบล็อก</span><span class="key">คลิกขวา</span></div>
+    <div class="row"><span>เลือกบล็อก</span><span class="key">1 - 8</span></div>
+    <div class="row"><span>เลื่อนบล็อก</span><span class="key">ลูกกลิ้งเมาส์</span></div>
+    <div class="row"><span>บิน / ลง</span><span class="key">F (โหมดบิน)</span></div>
+    <div class="row"><span>แชท (ออนไลน์)</span><span class="key">T</span></div>
+    <div class="row"><span>หยุดเกม</span><span class="key">Esc</span></div>
+  </div>
+
+  <div class="seed-display" id="seed-display">Seed: -</div>
+  <div class="actions">
+    <button id="btn-play">▶ เริ่มเล่นเดี่ยว</button>
+    <button id="btn-load" class="alt">📂 โหลดเซฟ</button>
+    <button id="btn-mp-host" style="background:#4a9eff;box-shadow:0 4px 0 #2a5e9f">🌐 สร้างห้องออนไลน์</button>
+    <button id="btn-mp-join" style="background:#7cda24;box-shadow:0 4px 0 #4a8a14">🔑 เข้าห้อง (มีรหัส)</button>
+    <button id="btn-worlds" style="background:#fbbf24;box-shadow:0 4px 0 #b46e00;color:#000">🌍 โลกที่บันทึก <span id="world-count" style="font-size:10px;opacity:.8">(0)</span></button>
+    <button id="btn-mods" style="background:#a855f7;box-shadow:0 4px 0 #6b21a8">📦 Mods <span id="mod-count" style="font-size:10px;opacity:.8">(1)</span></button>
+    <button id="btn-code" style="background:#f59e0b;box-shadow:0 4px 0 #b46e00">🧩 Code Editor</button>
+  </div>
+  <div id="mp-panel">
+    <h3 id="mp-panel-title">🌐 สร้างห้องออนไลน์</h3>
+    <div class="mp-info" id="mp-info">กดปุ่มด้านล่างเพื่อสร้างห้อง แล้วแชร์รหัส 4 ตัวให้เพื่อน</div>
+    <div class="code-display" id="mp-code" style="display:none">ABCD</div>
+    <input type="text" class="code-input" id="mp-code-input" maxlength="4" placeholder="XXXX" style="display:none" />
+    <div class="mp-info" id="mp-room-info" style="display:none"></div>
+    <div class="mp-buttons">
+      <button id="btn-mp-action">สร้าง</button>
+      <button class="mp-back" id="btn-mp-back">ยกเลิก</button>
+    </div>
+  </div>
+  <div class="credit">Vanilla WebGL · ไม่มี dependency · Multiplayer via WebSocket · Server: 103.253.75.161:3109</div>
+</div>
+
+<!-- MP UI overlays -->
+<div id="mp-status">สถานะ: <span id="mp-status-text">กำลังเชื่อมต่อ...</span></div>
+<div id="mp-players" style="display:none">
+  <h4>👥 ผู้เล่น <span id="mp-player-count">0</span>/8</h4>
+  <div id="mp-player-list"></div>
+</div>
+<button id="chat-toggle">💬 แชท</button>
+<div id="mp-chat">
+  <h4>💬 แชท <span style="color:#888;font-weight:400">[T]</span></h4>
+  <div class="chat-log" id="chat-log"></div>
+  <input type="text" id="chat-input" placeholder="พิมพ์ข้อความ... (Enter)" maxlength="200" />
+</div>
+
+<!-- Mod Manager modal (button "Mods") -->
+<div id="mods-modal">
+  <div class="craft-panel" style="max-width:780px">
+    <button class="inv-close" id="mods-close">✕</button>
+    <h2>📦 Mod Manager</h2>
+    <p style="color:var(--muted);font-size:12px;margin:4px 0 14px">ติดตั้ง mod เพื่อเพิ่มบล็อก/ไอเทม/สูตรคราฟต์ใหม่ • Mods เก็บใน localStorage</p>
+    <div id="mods-stats" style="background:rgba(0,0,0,.4);padding:8px 12px;border-radius:6px;margin-bottom:10px;font-size:12px;border:1px solid rgba(255,255,255,.1)"></div>
+    <div id="mods-list" style="max-height:300px;overflow-y:auto;margin-bottom:10px"></div>
+    <h3 style="color:#7cda24;margin:10px 0 6px;font-size:14px">➕ เพิ่ม Mod ใหม่</h3>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <input type="text" id="mod-name-input" placeholder="ชื่อ mod" style="flex:1;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:6px 10px;border-radius:4px;font-size:12px" />
+      <input type="text" id="mod-url-input" placeholder="URL ของ mod.json (ไม่บังคับ)" style="flex:2;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:6px 10px;border-radius:4px;font-size:12px" />
+    </div>
+    <textarea id="mod-json-input" placeholder='{"id":"my_mod","name":"My Mod","version":"1.0","author":"Me","items":[...],"recipes":[...]}' style="width:100%;height:80px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:6px 10px;border-radius:4px;font-size:11px;font-family:monospace;resize:vertical"></textarea>
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+      <button id="btn-install-mod" style="background:#7cda24;color:#000;border:0;padding:8px 16px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">📥 ติดตั้ง (Install)</button>
+      <button id="btn-install-mod-url" style="background:#4a9eff;color:#000;border:0;padding:8px 16px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">🌐 ติดตั้งจาก URL</button>
+      <button id="btn-load-sample-mod" style="background:#a855f7;color:#fff;border:0;padding:8px 16px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">📝 โหลดตัวอย่าง</button>
+    </div>
+    <details style="margin-top:14px">
+      <summary style="cursor:pointer;color:var(--accent2);font-size:12px">📖 วิธีสร้าง Mod</summary>
+      <pre style="background:rgba(0,0,0,.4);padding:10px;border-radius:4px;font-size:10px;overflow-x:auto;color:#7cda24;margin-top:8px;line-height:1.5">{
+  "id": "ruby_mod",          // ต้องไม่ซ้ำกับ mod อื่น
+  "name": "Ruby Mod",          // ชื่อที่แสดง
+  "version": "1.0.0",          // optional
+  "author": "You",             // optional
+  "items": [
+    { "id": "ruby", "name": "ทับทิม", "color": "#c83030", "shape": "gem" }
+  ],
+  "recipes": [
+    {
+      "id": "ruby_pickaxe",
+      "name": "พลั่วทับทิม",
+      "category": "tools",
+      "result": { "name": "ruby_pickaxe", "count": 1 },
+      "ingredients": [
+        { "name": "ruby", "count": 3 },
+        { "name": "stick", "count": 2 }
+      ]
+    }
+  ]
+}
+# shapes: gem, ingot, stick, powder, food, leather, tool_pickaxe, tool_sword, potion, coin
+# categories: basic, tools, building, food, other
+# block: 'block:N' where N is block ID (0-29)</pre>
+    </details>
+  </div>
+</div>
+
+<!-- World Browser modal (Persistent Worlds) -->
+<div id="worlds-modal" class="code-export-modal">
+  <div class="code-export-panel" style="width:720px;max-width:94vw">
+    <h3 style="color:#fbbf24;margin:0 0 6px;background:linear-gradient(45deg,#fbbf24,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🌍 World Browser</h3>
+    <p style="color:#888;font-size:12px;margin:0 0 14px">โลกที่บันทึกบน server — resume ได้แม้ host ออกไปแล้ว</p>
+    <div id="worlds-list" style="max-height:400px;overflow-y:auto;margin-bottom:12px"></div>
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;justify-content:space-between;align-items:center">
+      <div style="color:#666;font-size:11px">
+        💾 Auto-save ทุก 30s • Save เมื่อ host ออก
+      </div>
+      <div style="display:flex;gap:6px">
+        <button id="worlds-refresh" style="background:#3a3a4a;color:#fff;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">🔄 Refresh</button>
+        <button id="worlds-close" style="background:linear-gradient(180deg,#555,#333);color:#fff;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">ปิด</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Code Editor modal (Visual Block Programming) -->
+<div id="code-modal">
+  <div class="code-top">
+    <h2>🧩 Block Code Editor</h2>
+    <div class="code-stats" id="code-stats">
+      <div class="stat">📜 <span class="stat-v" id="code-stat-scripts">0</span> scripts</div>
+      <div class="stat">🧱 <span class="stat-v" id="code-stat-blocks">0</span> blocks</div>
+    </div>
+    <div style="flex:1"></div>
+    <button class="code-btn code-sample" id="code-load-sample">📝 ตัวอย่าง</button>
+    <button class="code-btn code-ai" id="code-ai">🤖 AI</button>
+    <button class="code-btn code-run" id="code-run">▶ Run</button>
+    <button class="code-btn code-stop" id="code-stop">⏹ Stop</button>
+    <button class="code-btn code-close" id="code-close">✕</button>
+  </div>
+  <div class="code-body">
+    <div id="code-blocks-list"></div>
+    <div class="code-workspace-wrap">
+      <div id="code-workspace">
+        <div id="code-scripts"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Code Export modal -->
+<div id="code-export-modal" class="code-export-modal">
+  <div class="code-export-panel">
+    <h3 style="color:#f59e0b;margin:0 0 10px">📤 Export Script</h3>
+    <p style="color:#888;font-size:12px;margin:0 0 10px">คัดลอก JSON ด้านล่างนี้ (Ctrl+A, Ctrl+C) เพื่อแชร์</p>
+    <textarea id="code-export-textarea" readonly></textarea>
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <button id="code-export-copy" style="background:#7cda24;color:#000;border:0;padding:6px 12px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">📋 Copy</button>
+      <button id="code-export-close" style="background:#666;color:#fff;border:0;padding:6px 12px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">ปิด</button>
+    </div>
+  </div>
+</div>
+
+<!-- Code Import modal -->
+<div id="code-import-modal" class="code-export-modal">
+  <div class="code-export-panel">
+    <h3 style="color:#7cda24;margin:0 0 10px">📥 Import Script</h3>
+    <p style="color:#888;font-size:12px;margin:0 0 10px">วาง JSON ด้านล่างนี้ หรือใส่ URL</p>
+    <input type="text" id="code-import-url" placeholder="URL ของ script.json (ไม่บังคับ)" style="width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:6px 10px;border-radius:4px;font-size:12px;margin-bottom:6px" />
+    <textarea id="code-import-textarea" placeholder='{"id":"my_script","name":"My Script","version":"1.0","format":"minicraft_code_v1","scripts":[...]}' style="width:100%;height:150px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:6px;border-radius:4px;font-family:monospace;font-size:11px;resize:vertical"></textarea>
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+      <button id="code-import-merge" style="background:#7cda24;color:#000;border:0;padding:6px 12px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">📥 Import (merge)</button>
+      <button id="code-import-replace" style="background:#f59e0b;color:#000;border:0;padding:6px 12px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">🔄 Replace ทั้งหมด</button>
+      <button id="code-import-close" style="background:#666;color:#fff;border:0;padding:6px 12px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI Script Generator modal -->
+<div id="ai-modal" class="code-export-modal">
+  <div class="code-export-panel" style="width:680px;max-width:94vw">
+    <h3 style="color:#06b6d4;margin:0 0 6px">🤖 AI Script Generator</h3>
+    <p style="color:#888;font-size:12px;margin:0 0 14px">พิมพ์คำสั่งภาษาคน → AI จะสร้าง Block script ให้อัตโนมัติ</p>
+
+    <!-- Mode selector -->
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <label style="color:#aaa;font-size:12px;min-width:60px">โหมด:</label>
+      <select id="ai-mode" onchange="updateAIModeUI()" style="flex:0;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:4px 8px;border-radius:4px;font-size:12px">
+        <option value="local">⚡ Local (offline)</option>
+        <option value="online">🌐 Online LLM</option>
+      </select>
+      <span id="ai-mode-desc" style="color:#888;font-size:11px;flex:1"></span>
+    </div>
+
+    <!-- Online settings (collapsible) -->
+    <div id="ai-online-settings" style="display:none;background:rgba(0,0,0,.3);padding:10px;border-radius:6px;margin-bottom:10px;border:1px solid rgba(6,182,212,.2)">
+      <div style="margin-bottom:6px">
+        <label style="color:#aaa;font-size:11px;display:block;margin-bottom:2px">🔑 API Key</label>
+        <input type="password" id="ai-apikey" placeholder="sk-..." style="width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:4px 8px;border-radius:4px;font-size:12px" />
+      </div>
+      <div style="display:flex;gap:6px">
+        <div style="flex:2">
+          <label style="color:#aaa;font-size:11px;display:block;margin-bottom:2px">🌐 API URL</label>
+          <input type="text" id="ai-apiurl" placeholder="https://api.openai.com/v1/chat/completions" style="width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:4px 8px;border-radius:4px;font-size:11px" />
+        </div>
+        <div style="flex:1">
+          <label style="color:#aaa;font-size:11px;display:block;margin-bottom:2px">🤖 Model</label>
+          <input type="text" id="ai-model" placeholder="gpt-4o-mini" style="width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:4px 8px;border-radius:4px;font-size:11px" />
+        </div>
+      </div>
+      <div style="color:#888;font-size:10px;margin-top:6px">รองรับ OpenAI, OpenRouter, Anthropic (ผ่าน OpenRouter), Local Ollama</div>
+    </div>
+
+    <!-- Prompt -->
+    <label style="color:#aaa;font-size:12px;display:block;margin-bottom:4px">💬 คำสั่งของคุณ:</label>
+    <textarea id="ai-prompt" placeholder='ตัวอย่าง: "สร้างบ้าน 5x5 จากอิฐ" / "สร้างหอคอยสูง 10" / "วาดวงกลมรัศมี 5"' rows="2" style="width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px;border-radius:4px;font-size:13px;resize:vertical;font-family:inherit"></textarea>
+
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center">
+      <button id="ai-run" onclick="runAI()" style="background:linear-gradient(180deg,#06b6d4,#0891b2);color:#fff;border:0;padding:9px 18px;font-size:13px;font-weight:700;border-radius:5px;cursor:pointer;box-shadow:0 2px 0 #0e7490">🤖 Generate</button>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button onclick="document.getElementById('ai-prompt').value='สร้างบ้าน 5x5 จากอิฐ'" style="background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);padding:5px 8px;font-size:11px;border-radius:4px;cursor:pointer">🏠 บ้าน</button>
+        <button onclick="document.getElementById('ai-prompt').value='สร้างหอคอยสูง 10'" style="background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);padding:5px 8px;font-size:11px;border-radius:4px;cursor:pointer">🗼 หอคอย</button>
+        <button onclick="document.getElementById('ai-prompt').value='สร้างกำแพงยาว 15'" style="background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);padding:5px 8px;font-size:11px;border-radius:4px;cursor:pointer">🧱 กำแพง</button>
+        <button onclick="document.getElementById('ai-prompt').value='สร้างพีระมิด 7 จากทราย'" style="background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);padding:5px 8px;font-size:11px;border-radius:4px;cursor:pointer">🔺 พีระมิด</button>
+        <button onclick="document.getElementById('ai-prompt').value='ปลูกต้นไม้'" style="background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);padding:5px 8px;font-size:11px;border-radius:4px;cursor:pointer">🌳 ต้นไม้</button>
+        <button onclick="document.getElementById('ai-prompt').value='ขุดหลุม 5x5 ลึก 3'" style="background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);padding:5px 8px;font-size:11px;border-radius:4px;cursor:pointer">⛏ ขุด</button>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="ai-loading" style="display:none;text-align:center;padding:20px;color:#06b6d4">
+      <div style="font-size:24px;margin-bottom:8px">⏳</div>
+      <div>AI กำลังสร้าง script...</div>
+    </div>
+
+    <!-- Result -->
+    <div id="ai-result" style="display:none;margin-top:14px;padding:12px;background:rgba(124,218,36,.06);border:1px solid rgba(124,218,36,.3);border-radius:6px">
+      <div id="ai-result-info" style="font-size:12px;color:#7cda24;line-height:1.6;margin-bottom:8px"></div>
+      <details>
+        <summary style="cursor:pointer;color:#aaa;font-size:11px;margin-bottom:6px">📋 ดู JSON ดิบ</summary>
+        <pre id="ai-result-json" style="background:rgba(0,0,0,.4);padding:8px;border-radius:4px;font-size:10px;overflow-x:auto;color:#7cda24;max-height:200px;overflow-y:auto;line-height:1.4"></pre>
+      </details>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        <button onclick="applyAIResult('merge')" style="background:linear-gradient(180deg,#7cda24,#5ba818);color:#000;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer;box-shadow:0 2px 0 #4a8812">➕ เพิ่มเข้า workspace</button>
+        <button onclick="applyAIResult('replace')" style="background:linear-gradient(180deg,#f59e0b,#d97706);color:#000;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer;box-shadow:0 2px 0 #b45c00">🔄 แทนที่ทั้งหมด</button>
+        <button onclick="closeAIModal()" style="background:#666;color:#fff;border:0;padding:8px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">ยกเลิก</button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end">
+      <button onclick="closeAIModal()" style="background:linear-gradient(180deg,#555,#333);color:#fff;border:0;padding:6px 14px;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer">ปิด</button>
+    </div>
+  </div>
+</div>
+
+<div id="pause">
+  <h2>⏸ หยุดชั่วคราว</h2>
+  <p>กด Esc เพื่อเล่นต่อ</p>
+  <button id="btn-resume">▶ เล่นต่อ</button>
+</div>
+
+<!-- Inventory modal (E key) -->
+<div id="inv-modal">
+  <div class="inv-panel">
+    <button class="inv-close" id="inv-close">✕</button>
+    <h2>🎒 คลังของ</h2>
+    <p style="color:var(--muted);font-size:12px;margin:4px 0 14px">คลิกขวาเพื่อใช้ของ • คลิกซ้ายเพื่อเลือก</p>
+    <div id="inv-content"></div>
+  </div>
+</div>
+
+<!-- Crafting modal (C key) -->
+<div id="craft-modal">
+  <div class="craft-panel">
+    <button class="inv-close" id="craft-close">✕</button>
+    <h2>🔨 คราฟต์ของ</h2>
+    <p style="color:var(--muted);font-size:12px;margin:4px 0 14px">คลิกเพื่อคราฟต์ (ต้องมีของครบในคลัง)</p>
+    <div id="craft-content" class="craft-grid"></div>
+  </div>
+</div>
+
+<!-- 3x3 Crafting Table modal -->
+<div id="craft-table-modal" class="code-export-modal">
+  <div class="craft-panel" style="max-width:720px">
+    <button class="inv-close" id="craft-table-close">✕</button>
+    <h2>🔨 โต๊ะคราฟต์ (3x3)</h2>
+    <p style="color:var(--muted);font-size:12px;margin:4px 0 10px">วางของในตาราง → ผลลัพธ์แสดงด้านขวา</p>
+    <div style="display:grid;grid-template-columns:auto 80px auto;gap:14px;align-items:center">
+      <!-- 3x3 input grid -->
+      <div id="ct-input-grid" style="display:grid;grid-template-columns:repeat(3,60px);gap:4px"></div>
+      <!-- Arrow + output -->
+      <div style="font-size:32px;color:#fbbf24">➡</div>
+      <div id="ct-output-slot" style="width:60px;height:60px;background:rgba(0,0,0,.4);border:2px solid #fbbf24;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer"></div>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:6px;justify-content:space-between;align-items:center">
+      <div style="color:#888;font-size:11px">💡 เคล็ดลับ: คลิกช่องเพื่อใส่ของ, คลิกขวาเพื่อเอาออก</div>
+      <button id="ct-clear" style="background:#666;color:#fff;border:0;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:11px">🗑 เคลียร์</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chest modal (storage) -->
+<div id="chest-modal" class="code-export-modal">
+  <div class="craft-panel" style="max-width:720px">
+    <button class="inv-close" id="chest-close">✕</button>
+    <h2>📦 หีบ</h2>
+    <p style="color:var(--muted);font-size:12px;margin:4px 0 10px">คลิกช่องเพื่อย้ายของระหว่างคลังกับหีบ</p>
+    <div style="display:grid;grid-template-columns:1fr;gap:10px">
+      <div>
+        <div style="color:#aaa;font-size:11px;margin-bottom:4px">📦 หีบ</div>
+        <div id="chest-grid" style="display:grid;grid-template-columns:repeat(9,52px);gap:4px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
