@@ -27,3 +27,10 @@ __pycache__/
 
 # Don't ignore our own screenshots
 !docs/screenshots/
+
+# Screenshot files inside docs/screenshots are tracked despite the global *.png ignore
+!docs/screenshots/*.png
+
+# Local test artifacts
+multiplayer/server/worlds/
+.mimosa/

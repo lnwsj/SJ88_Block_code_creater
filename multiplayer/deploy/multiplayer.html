@@ -2233,8 +2233,23 @@ let _drownAcc = 0;
 // ======================================================================
 // INPUT
 // ======================================================================
-function lockPointer() { canvas.requestPointerLock(); }
-function unlockPointer() { document.exitPointerLock(); }
+function lockPointer() {
+  // requestPointerLock returns a Promise in modern Chromium; a denied lock
+  // (embedded webviews, iframes without allow="pointer-lock") would otherwise
+  // surface as an unhandled rejection.
+  try {
+    const p = canvas.requestPointerLock();
+    if (p && typeof p.catch === 'function') {
+      p.catch(() => toast('🔒 เมาส์ล็อคไม่สำเร็จ — คลิกที่หน้าจอเกมอีกครั้ง'));
+    }
+  } catch (e) { /* legacy synchronous failure — the pause menu still works */ }
+}
+function unlockPointer() {
+  try {
+    const p = document.exitPointerLock();
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch (e) {}
+}
 
 document.addEventListener('pointerlockchange', () => {
   mouseLocked = document.pointerLockElement === canvas;
@@ -5248,23 +5263,19 @@ if (howPanel) {
 // ======================================================================
 // Server URL: detect from page URL, default to a public relay
 const MP_SERVER = (() => {
-  // If running via file:// or local, use a public dev server.
-  // For production, this should point to the deployed signaling server.
   const override = window.MP_SERVER_OVERRIDE;
   if (override) return override;
-  // Try to derive from current location
-  const host = window.location.hostname || 'localhost';
-  const protocol = window.location.protocol || 'http:';
-  // Same-origin: use ws/wss based on protocol (avoids mixed content)
-  if (host && host !== 'localhost' && host !== '127.0.0.1' && host !== '') {
-    const scheme = protocol === 'https:' ? 'wss' : 'ws';
-    // If served from same VPS, use port 3109
-    // If on minimax.io (public deploy), use the CF WS proxy
+  const loc = window.location;
+  const host = loc.hostname || '';
+  // Served over http(s) by the game server itself: use the SAME origin (host
+  // + serving port) so any custom PORT deployment works, not just 3109.
+  if ((loc.protocol === 'https:' || loc.protocol === 'http:') && host) {
     if (host.endsWith('space.minimax.io')) {
       return "ws://103.253.75.161:3109/";
     }
-    return `${scheme}://${host}:3109/`;
+    return (loc.protocol === 'https:' ? 'wss://' : 'ws://') + loc.host + '/';
   }
+  // file:// (offline single file) — expect a local dev server on the default port
   return 'ws://localhost:3109/';
 })();
 
@@ -7835,7 +7846,8 @@ const LOCAL_AI_PATTERNS = [
 
 function localAIGenerate(prompt) {
   const lower = prompt.toLowerCase();
-  const ctx = { blockNames: window.BLOCK_NAMES || {} };
+  // BLOCK_NAMES is a top-level const (not on window) — reference it directly
+  const ctx = { blockNames: BLOCK_NAMES || {} };
   for (const pattern of LOCAL_AI_PATTERNS) {
     for (const kw of pattern.keywords) {
       if (lower.includes(kw.toLowerCase())) {
@@ -8204,11 +8216,15 @@ function applyAIResult(mode) {
 function getMPBaseURL() {
   // Returns base URL for MP server (same as WebSocket but with http/https)
   const loc = window.location;
-  const host = loc.hostname;
-  if (host.endsWith('space.minimax.io')) {
+  if (loc.hostname.endsWith('space.minimax.io')) {
     return 'http://103.253.75.161:3109';
   }
-  return loc.protocol + '//' + loc.hostname + ':3109';
+  // Same-origin REST API when the game server itself serves the page
+  // (any custom PORT — not just the default 3109)
+  if (loc.protocol === 'https:' || loc.protocol === 'http:') {
+    return loc.protocol + '//' + loc.host;
+  }
+  return 'http://localhost:3109';
 }
 
 async function fetchWorlds() {

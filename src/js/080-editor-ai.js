@@ -1650,7 +1650,8 @@ const LOCAL_AI_PATTERNS = [
 
 function localAIGenerate(prompt) {
   const lower = prompt.toLowerCase();
-  const ctx = { blockNames: window.BLOCK_NAMES || {} };
+  // BLOCK_NAMES is a top-level const (not on window) — reference it directly
+  const ctx = { blockNames: BLOCK_NAMES || {} };
   for (const pattern of LOCAL_AI_PATTERNS) {
     for (const kw of pattern.keywords) {
       if (lower.includes(kw.toLowerCase())) {
@@ -2019,11 +2020,15 @@ function applyAIResult(mode) {
 function getMPBaseURL() {
   // Returns base URL for MP server (same as WebSocket but with http/https)
   const loc = window.location;
-  const host = loc.hostname;
-  if (host.endsWith('space.minimax.io')) {
+  if (loc.hostname.endsWith('space.minimax.io')) {
     return 'http://103.253.75.161:3109';
   }
-  return loc.protocol + '//' + loc.hostname + ':3109';
+  // Same-origin REST API when the game server itself serves the page
+  // (any custom PORT — not just the default 3109)
+  if (loc.protocol === 'https:' || loc.protocol === 'http:') {
+    return loc.protocol + '//' + loc.host;
+  }
+  return 'http://localhost:3109';
 }
 
 async function fetchWorlds() {

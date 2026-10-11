@@ -225,8 +225,23 @@ let _drownAcc = 0;
 // ======================================================================
 // INPUT
 // ======================================================================
-function lockPointer() { canvas.requestPointerLock(); }
-function unlockPointer() { document.exitPointerLock(); }
+function lockPointer() {
+  // requestPointerLock returns a Promise in modern Chromium; a denied lock
+  // (embedded webviews, iframes without allow="pointer-lock") would otherwise
+  // surface as an unhandled rejection.
+  try {
+    const p = canvas.requestPointerLock();
+    if (p && typeof p.catch === 'function') {
+      p.catch(() => toast('🔒 เมาส์ล็อคไม่สำเร็จ — คลิกที่หน้าจอเกมอีกครั้ง'));
+    }
+  } catch (e) { /* legacy synchronous failure — the pause menu still works */ }
+}
+function unlockPointer() {
+  try {
+    const p = document.exitPointerLock();
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch (e) {}
+}
 
 document.addEventListener('pointerlockchange', () => {
   mouseLocked = document.pointerLockElement === canvas;

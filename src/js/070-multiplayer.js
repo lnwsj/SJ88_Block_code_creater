@@ -3,23 +3,19 @@
 // ======================================================================
 // Server URL: detect from page URL, default to a public relay
 const MP_SERVER = (() => {
-  // If running via file:// or local, use a public dev server.
-  // For production, this should point to the deployed signaling server.
   const override = window.MP_SERVER_OVERRIDE;
   if (override) return override;
-  // Try to derive from current location
-  const host = window.location.hostname || 'localhost';
-  const protocol = window.location.protocol || 'http:';
-  // Same-origin: use ws/wss based on protocol (avoids mixed content)
-  if (host && host !== 'localhost' && host !== '127.0.0.1' && host !== '') {
-    const scheme = protocol === 'https:' ? 'wss' : 'ws';
-    // If served from same VPS, use port 3109
-    // If on minimax.io (public deploy), use the CF WS proxy
+  const loc = window.location;
+  const host = loc.hostname || '';
+  // Served over http(s) by the game server itself: use the SAME origin (host
+  // + serving port) so any custom PORT deployment works, not just 3109.
+  if ((loc.protocol === 'https:' || loc.protocol === 'http:') && host) {
     if (host.endsWith('space.minimax.io')) {
       return "ws://103.253.75.161:3109/";
     }
-    return `${scheme}://${host}:3109/`;
+    return (loc.protocol === 'https:' ? 'wss://' : 'ws://') + loc.host + '/';
   }
+  // file:// (offline single file) — expect a local dev server on the default port
   return 'ws://localhost:3109/';
 })();
 
