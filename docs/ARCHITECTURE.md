@@ -11,12 +11,12 @@ SJ88_Block_code_creater/
 │   └── ruby_mod.json       # Sample mod
 ├── multiplayer/
 │   ├── server/
-│   │   ├── server.js              # WS only (basic)
-│   │   ├── server-full.js         # HTTP+WS combined
-│   │   └── package.json
+│   │   ├── server.js              # UNIFIED: HTTP+WS+persistent worlds+REST API
+│   │   └── minicraft-mp.service   # systemd unit
 │   ├── deploy/
-│   │   └── multiplayer.html       # 185KB MP game
-│   └── deploy-mini-mp.py          # Deploy script
+│   │   └── multiplayer.html       # MP game (copy of index.html)
+│   ├── deploy.sh                  # SSH-key deploy (no credentials in repo)
+│   └── deploy-mini-mp.py          # legacy deploy script (owner's)
 └── docs/
     ├── MODDING.md
     ├── DEPLOY.md
@@ -93,35 +93,53 @@ User Input → Player → Physics (collision) → World update
 
 ## 🌐 Multiplayer Architecture
 
-### Server (server-full.js)
+### Server (server.js — unified)
 
 ```
 Client 1 ─┐                ┌─→ Client 1
            ├─ WebSocket ──┤
 Client 2 ─┘   server.js   └─→ Client 2
+                │
+                ├─ worlds/<CODE>/meta.json + data.bin + chests.json (disk)
+                └─ REST: GET /api/worlds (open), DELETE/rename (admin token)
 ```
+
+- World blocks sync as **RLE+base64** (`worldRB64`) — typically tens of KB
+  instead of the old ~300-500KB JSON array
+- **Every player's block/chest edits persist** (server applies them to the
+  room world and debounces a disk save every 5s)
+- **Host migration**: when the host disconnects, the longest-connected player
+  is promoted (`host_migrated`) and autosaving continues through them
+- Per-connection rate limiting + message validation; room codes use
+  `crypto.randomInt`
 
 ### Message Protocol
 
 ```js
 // Client → Server
 { type: 'hello', name, color, room? }
-{ type: 'create_room' }
+{ type: 'create_room', resumeCode? }        // resumeCode = revive a saved world
 { type: 'join_room', code }
-{ type: 'move', x, y, z, yaw, pitch, hp }
+{ type: 'move', x, y, z, yaw, pitch, hp, fly }
 { type: 'block', action: 'place'|'break', x, y, z, block }
+{ type: 'chest_update', x, y, z, items }    // any player
+{ type: 'world_state', world: { W, D, H, worldRB64, chests } }  // host share
+{ type: 'world_save', world: { ... } }      // host autosave (30s)
 { type: 'chat', text }
+{ type: 'bot' / 'bot_stop', ... }
 { type: 'pong' }
 
 // Server → Client
-{ type: 'room_created', code, hostId }
-{ type: 'joined', id, code, hostId, world }
-{ type: 'player_joined', id, name, color }
-{ type: 'player_left', id }
-{ type: 'player_move', id, x, y, z, yaw, pitch, hp }
-{ type: 'block_change', x, y, z, block, action }
+{ type: 'room_created', code, id, hostId, resumed }
+{ type: 'joined', id, code, players, world: { worldRB64, chests } }
+{ type: 'world_sync', world: { worldRB64, chests } }
+{ type: 'player_joined' / 'player_left', ... }
+{ type: 'player_move', id, x, y, z, yaw, pitch, hp, fly }
+{ type: 'block_change', id, action, x, y, z, block }
+{ type: 'chest_update', x, y, z, items }
+{ type: 'host_migrated', id, name }         // host left → new host promoted
 { type: 'chat', id, name, text }
-{ type: 'pong' }
+{ type: 'world_saved', meta }
 { type: 'error', message }
 ```
 

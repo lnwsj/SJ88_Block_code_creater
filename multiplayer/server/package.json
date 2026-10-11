@@ -1,14 +1,20 @@
 {
-  "name": "server",
-  "version": "1.0.0",
-  "main": "index.js",
+  "name": "minicraft-mp-server",
+  "version": "3.0.0",
+  "description": "MiniCraft 3D unified multiplayer server: rooms + persistent worlds + REST API",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "test": "node test.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": [
+    "minecraft",
+    "webgl",
+    "websocket",
+    "multiplayer"
+  ],
+  "author": "lnwsj",
+  "license": "MIT",
   "dependencies": {
     "ws": "^8.21.3"
   }

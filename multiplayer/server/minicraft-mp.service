@@ -1,0 +1,20 @@
+[Unit]
+Description=MiniCraft 3D Multiplayer Server (unified: rooms + persistent worlds)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/minicraft-mp
+ExecStart=/usr/bin/env node server.js
+Restart=always
+RestartSec=3
+Environment=PORT=3109
+# Pin the admin token (delete/rename world API) instead of a per-boot random one:
+#Environment=MINICRAFT_ADMIN_TOKEN=change-me
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

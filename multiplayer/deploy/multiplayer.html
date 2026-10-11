@@ -4702,8 +4702,9 @@ function chestSlotClick(idx, isRight = false) {
   }
   renderChest();
   updateInventoryUI();
-  // Broadcast chest update to other players in MP
-  if (mp.connected && mp.isHost) {
+  // Broadcast chest update to other players in MP (any player — server
+  // accepts chest edits from guests, not just the host)
+  if (mp.connected && mp.roomCode) {
     sendMP({ type: 'chest_update', x: openChestRef.x, y: openChestRef.y, z: openChestRef.z, items: openChestRef.items });
   }
 }
@@ -5118,6 +5119,16 @@ function handleMPMessage(msg) {
     if (p) addChat('System', p.name + ' ออกจากห้อง', '#888');
     updateMPUI();
   }
+  else if (t === 'host_migrated') {
+    // Server promoted a remaining player after the host left
+    if (mp.myId === msg.id) {
+      mp.isHost = true;
+      toast('👑 host ออก — คุณเป็น host คนใหม่ (โลกจะเซฟผ่านคุณ)');
+      addChat('System', '👑 คุณได้เลื่อนเป็น host คนใหม่', '#ffd800');
+    } else {
+      addChat('System', '👑 ' + (msg.name || 'ผู้เล่นอื่น') + ' เป็น host คนใหม่', '#888');
+    }
+  }
   else if (t === 'player_move') {
     let p = mp.remotePlayers.get(msg.id);
     if (!p) {
@@ -5188,25 +5199,37 @@ function handleMPMessage(msg) {
   }
 }
 
+// Decode a plain-base64 world (fallback when a server sends worldB64 instead
+// of the usual RLE+base64 worldRB64)
+function b64ToU8(b64, target) {
+  try {
+    const s = atob(b64);
+    if (s.length !== target.length) return false;
+    for (let i = 0; i < s.length; i++) target[i] = s.charCodeAt(i);
+    return true;
+  } catch (e) { return false; }
+}
+
 function applyWorldState(w, seed) {
-  if (!w || !w.array) return;
+  if (!w) return;
   if (seed != null) currentSeed = seed;
   document.getElementById('seed-display').textContent = 'Seed: ' + currentSeed;
   document.getElementById('dseed').textContent = currentSeed;
-  if (w.array.length === world.length) {
+  // v3 servers send RLE+base64; plain base64 and legacy arrays still accepted
+  let applied = false;
+  if (typeof w.worldRB64 === 'string') applied = rleDecodeU8(w.worldRB64, world);
+  if (!applied && typeof w.worldB64 === 'string') applied = b64ToU8(w.worldB64, world);
+  if (!applied && Array.isArray(w.array) && w.array.length === world.length) {
     for (let i = 0; i < world.length; i++) world[i] = w.array[i];
-  } else {
-    generateWorld(currentSeed);
+    applied = true;
   }
+  if (!applied) generateWorld(currentSeed);
   // Restore chests
   if (w.chests) {
     chests.clear();
     for (const [k, items] of Object.entries(w.chests)) {
-      chests.set(k, { items, x: 0, y: 0, z: 0 }); // pos will be derived from key
-      const [cx, cy, cz] = k.split('_').map(Number);
-      chests.get(k).x = cx;
-      chests.get(k).y = cy;
-      chests.get(k).z = cz;
+      const ch = getChestByKey(k);
+      ch.items = items;
     }
   } else {
     chests.clear();
@@ -5223,7 +5246,7 @@ function shareWorldState() {
       chestData[k] = ch.items;
     }
   }
-  sendMP({ type: 'world_state', world: { W, D, H, array: Array.from(world), chests: chestData }, seed: currentSeed });
+  sendMP({ type: 'world_state', world: { W, D, H, worldRB64: rleEncodeU8(world), chests: chestData }, seed: currentSeed });
 }
 
 function sendMP(msg) {
@@ -6987,9 +7010,14 @@ function autoSaveIfHost() {
   _lastAutoSave = now;
   if (typeof world === 'undefined' || !world) return;
   showSaveIndicator('saving');
+  // Autosave carries chest contents too, so the resumed world keeps them
+  const chestData = {};
+  for (const [k, ch] of chests.entries()) {
+    if (ch.items && ch.items.some(it => it !== null)) chestData[k] = ch.items;
+  }
   sendMP({
     type: 'world_save',
-    world: { W, D, H, array: Array.from(world), seed: typeof currentSeed !== 'undefined' ? currentSeed : null }
+    world: { W, D, H, worldRB64: rleEncodeU8(world), chests: chestData, seed: typeof currentSeed !== 'undefined' ? currentSeed : null }
   });
 }
 // Hook auto-save into the game loop (run every frame, throttled inside)
@@ -8088,8 +8116,11 @@ function escapeHTML(s) {
 async function renameWorldPrompt(code) {
   const newName = prompt('เปลี่ยนชื่อโลก ' + code + ':');
   if (!newName) return;
+  // Rename/delete are admin-only on the unified server — ask for the token
+  const token = prompt('Admin token ของ server (ปรากฏใน console/journal ของ server):');
+  if (!token) return;
   try {
-    const res = await fetch(getMPBaseURL() + '/api/worlds/' + code + '/rename', {
+    const res = await fetch(getMPBaseURL() + '/api/worlds/' + code + '/rename?token=' + encodeURIComponent(token), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newName })
@@ -8098,7 +8129,7 @@ async function renameWorldPrompt(code) {
       toast('✏️ เปลี่ยนชื่อแล้ว');
       renderWorldsList();
     } else {
-      toast('❌ เปลี่ยนชื่อไม่สำเร็จ');
+      toast(res.status === 403 ? '❌ token ไม่ถูกต้อง' : '❌ เปลี่ยนชื่อไม่สำเร็จ');
     }
   } catch(e) {
     toast('❌ ' + e.message);

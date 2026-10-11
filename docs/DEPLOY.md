@@ -35,10 +35,33 @@ python3 -m http.server 8000
 ```bash
 cd multiplayer/server
 npm install
-node server-full.js
+node server.js   # unified server: rooms + persistent worlds + REST API
+```
+
+### One-command deploy (SSH key auth — no passwords in the repo)
+
+```bash
+# ต้องตั้ง SSH key กับ VPS ก่อน (ssh-copy-id user@host)
+SSH_HOST=root@YOUR_VPS_IP ./deploy.sh
+```
+
+สคริปต์อัปโหลด `server.js` + `multiplayer.html` + systemd unit, ติดตั้ง dependency
+และรีสตาร์ท service `minicraft-mp` ให้อัตโนมัติ
+
+### 🔑 Admin Token
+
+การลบ/เปลี่ยนชื่อโลกผ่าน REST API (`DELETE /api/worlds/:code`, `POST .../rename`)
+ต้องใช้ **admin token** — server พิมพ์ token ออกทาง console ทุกครั้งที่ boot
+(หรือ pin ไว้ด้วย env `MINICRAFT_ADMIN_TOKEN=...` ใน systemd unit)
+
+```bash
+# ดู token ปัจจุบัน
+journalctl -u minicraft-mp -n 30 | grep "Admin token"
 ```
 
 ### systemd Service
+
+unit พร้อมอยู่แล้วที่ `multiplayer/server/minicraft-mp.service` (deploy.sh ติดตั้งให้) — ถ้าทำมือ:
 ```ini
 # /etc/systemd/system/minicraft-mp.service
 [Unit]
@@ -49,7 +72,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/opt/minicraft-mp
-ExecStart=/usr/bin/node /opt/minicraft-mp/server/server-full.js
+ExecStart=/usr/bin/env node /opt/minicraft-mp/server.js
 Restart=always
 RestartSec=10
 

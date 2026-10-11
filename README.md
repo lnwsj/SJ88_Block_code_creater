@@ -47,13 +47,14 @@ SJ88_Block_code_creater/
 │   └── ruby_mod.json       # Mod ตัวอย่าง
 ├── multiplayer/
 │   ├── server/
-│   │   ├── server.js       # WebSocket signaling server (basic)
-│   │   ├── server-full.js  # HTTP+WS combined server
+│   │   ├── server.js       # Unified server (rooms + persistent worlds + REST API)
+│   │   ├── minicraft-mp.service  # systemd unit
 │   │   ├── package.json
 │   │   └── package-lock.json
 │   ├── deploy/
-│   │   └── multiplayer.html # เกม multiplayer (185KB)
-│   └── deploy-mini-mp.py   # Deploy script (paramiko)
+│   │   └── multiplayer.html # เกม multiplayer (สำเนาของ index.html)
+│   ├── deploy.sh           # Deploy แบบ SSH key (ไม่มีรหัสผ่านใน repo)
+│   └── deploy-mini-mp.py   # (เดิม) deploy script ของเจ้าของ repo
 └── docs/
     ├── MODDING.md          # คู่มือสร้าง mod
     └── DEPLOY.md           # คู่มือ deploy
@@ -74,8 +75,8 @@ python3 -m http.server 8000
 ```bash
 cd multiplayer/server
 npm install
-node server-full.js
-# Server runs on http://localhost:3109
+node server.js
+# Server runs on http://localhost:3109 (rooms + persistent worlds)
 # เปิด multiplayer/deploy/multiplayer.html ใน browser 2 tabs
 ```
 
