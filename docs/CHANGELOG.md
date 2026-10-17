@@ -4,6 +4,13 @@
 
 ---
 
+## [Unreleased #3] — Inverted mouse-look fix (11 ต.ค. 2026)
+
+### Fixed
+- **เมาส์แกนนอนกลับด้าน** (รายงานจากการเล่นจริงครั้งแรก) — กล้องหันแรงเยอร์ = `(-sin yaw, ·, -cos yaw)` ดังนั้น yaw เพิ่ม = กล้องหันซ้าย แต่ตัวจับเมาส์ใช้ `yaw += movementX` ทำให้เมาส์ขวา→กล้องหันซ้าย แก้เป็น `yaw -= movementX` (แกนตั้งถูกอยู่แล้ว) + SW bump v4 — บั๊กนี้เล็ดรอดจาก playtest อัตโนมัติเพราะ automation ไม่เคยขยับเมาส์จริงเหนือ canvas
+
+---
+
 ## [Unreleased #2] — Illustrated Manual + craft UI crash fix (11 ต.ค. 2026)
 
 ### Fixed
