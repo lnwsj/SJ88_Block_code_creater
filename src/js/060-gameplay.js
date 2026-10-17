@@ -1138,6 +1138,9 @@ function buildCraftUI() {
   const recipes = getRecipes();
   const byCat = {};
   for (const r of recipes) {
+    // 3x3 shape recipes (chest/furnace/door/…) belong to the crafting TABLE UI;
+    // they carry `shape` instead of `ingredients` and used to crash this quick list.
+    if (r.needTable || !r.ingredients) continue;
     const cat = r.category || 'other';
     if (!byCat[cat]) byCat[cat] = [];
     byCat[cat].push(r);
@@ -1161,7 +1164,7 @@ function buildCraftUI() {
       // Mod-supplied names flow into innerHTML — escape display text and attributes
       const resNameAttr = escapeHTML(r.result.name);
       const modTag = r.mod && r.mod !== 'vanilla' ? `<span style="color:#ffd800;font-size:9px"> [${escapeHTML(String(r.mod))}]</span>` : '';
-      html += `<div class="craft-item" data-result="${resNameAttr}" data-count="${escapeHTML(String(r.result.count))}" ${canCraft ? '' : 'style="opacity:.5"'}>
+      html += `<div class="craft-item" data-recipe="${escapeHTML(String(r.id))}" data-result="${resNameAttr}" data-count="${escapeHTML(String(r.result.count))}" ${canCraft ? '' : 'style="opacity:.5"'}>
         <canvas data-item="${resNameAttr}" width="36" height="36"></canvas>
         <div class="info">
           <div class="name">${escapeHTML(String(resultName))} x${escapeHTML(String(r.result.count))}${modTag}</div>
@@ -1184,10 +1187,11 @@ function buildCraftUI() {
   // attach click handlers
   el.querySelectorAll('.craft-item').forEach(el => {
     el.addEventListener('click', () => {
-      const resultName = el.dataset.result;
-      const count = parseInt(el.dataset.count);
-      const recipe = getRecipes().find(r => r.result.name === resultName && r.result.count === count);
-      if (!recipe) return;
+      // Look up by recipe id — result name+count is NOT unique (glass 2x2 vs 3x3)
+      const recipe = getRecipes().find(r => r.id === el.dataset.recipe);
+      if (!recipe || !recipe.ingredients) return;
+      const resultName = recipe.result.name;
+      const count = recipe.result.count;
       // check ingredients again
       if (!recipe.ingredients.every(ing => hasItem(ing.name, ing.count))) {
         toast('❌ ของไม่พอ');

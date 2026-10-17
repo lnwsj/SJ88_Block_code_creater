@@ -99,6 +99,7 @@ cd multiplayer/server && node test.js   # integration tests (25)
 
 | เอกสาร | เนื้อหา |
 |---|---|
+| 📖 [docs/MANUAL.md](docs/MANUAL.md) | **คู่มือฉบับสมบูรณ์ประกอบภาพจริง 34 ภาพ** — ทุกหน้าจอ ทุกระบบ เห็นของจริงทีละขั้น |
 | 🎮 [docs/GAMEPLAY.md](docs/GAMEPLAY.md) | **คู่มือผู้เล่นละเอียด** — คอนโทรลทุกปุ่ม, ตารางอาหาร/ดาเมจ/สูตรคราฟต์ครบ, สอน editor ทุก opcode, ใช้ AI, ออนไลน์, FAQ |
 | 📜 [docs/CHANGELOG.md](docs/CHANGELOG.md) | ประวัติการเปลี่ยนแปลงเต็ม + กติกาภายในสำหรับคนแก้โค้ด |
 | 🏗️ [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | สถาปัตยกรรมเอนจิน, data flow, build pipeline, เซิร์ฟเวอร์, การตัดสินใจทางเทคนิค |
