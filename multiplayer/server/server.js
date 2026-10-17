@@ -327,7 +327,7 @@ const server = http.createServer((req, res) => {
     // Stale-while-revalidate: instant loads offline, self-updates online.
     // Bump CACHE when shipping a new game build so clients refresh.
     const sw = [
-      "const CACHE = 'minicraft-v3';",
+      "const CACHE = 'minicraft-v4';",
       "self.addEventListener('install', e => {",
       "  e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/', '/multiplayer.html', '/manifest.webmanifest'])));",
       "  self.skipWaiting();",

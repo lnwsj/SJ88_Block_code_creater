@@ -255,7 +255,9 @@ document.addEventListener('pointerlockchange', () => {
 
 document.addEventListener('mousemove', (e) => {
   if (!mouseLocked) return;
-  player.yaw += e.movementX * CFG.MOUSE_SENS;
+  // Camera forward = (-sin yaw, -, -cos yaw): increasing yaw pans the view to
+  // the LEFT, so mouse-right must DECREASE yaw (non-inverted look).
+  player.yaw -= e.movementX * CFG.MOUSE_SENS;
   player.pitch -= e.movementY * CFG.MOUSE_SENS;
   player.pitch = Math.max(-Math.PI/2 + 0.01, Math.min(Math.PI/2 - 0.01, player.pitch));
 });
