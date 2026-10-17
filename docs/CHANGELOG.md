@@ -4,6 +4,17 @@
 
 ---
 
+## [Unreleased #4] — Revived rooms had no host (11 ต.ค. 2026)
+
+### Fixed
+- **ห้องที่ revive จากดิสก์ไม่มี host ตลอดกาล** — `join_room` สร้างห้อง revive ด้วย `hostId: null` แล้วไม่มีใครถูก promote เลย → `world_save` ถูกปฏิเสธ (30 วิ autosave ก็ข้าม) การแก้บล็อกในห้อง revive จึง**ตายไปพร้อมห้อง** (เคสจริง: พีระมิดที่สร้างหายเพราะเข้าห้อง revive หลัง reload) — ตอนนี้คนแรกที่เข้าห้อง hostless ได้เป็น host ทันที + ส่ง `hostId` ใน `joined` + `host_migrated` แจ้ง client (`multiplayer/server/server.js`, `src/js/070-multiplayer.js`) — ยืนยันสด: เข้าห้อง ERPF → isHost=true → สร้างเขาวงกต → lastSaved สด + blockCount 37,522→49,307
+- SW cache bump v4 → **v5** (client แก้การอ่าน isHost)
+
+### Added (เนื้อหาในเกม, โลก ERPF)
+- **เขาวงกตอิฐ 25×25** บนที่ราบระดับ 26 (ระเบิดหัวเนิน 6,561 บล็อก): DFS perfect maze ผนัง 2 ชั้น 668 บล็อก, ปากทางใต้, ห้องกลางเสากลอสโตน + หีบสมบัติ (เพชร 5/เหล็ก 8/ขนมปัง 6), BFS ยืนยันทางเดิน 62 ก้าว — ภาพ m35–m39 ในคู่มือ
+
+---
+
 ## [Unreleased #3] — Inverted mouse-look fix (11 ต.ค. 2026)
 
 ### Fixed

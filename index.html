@@ -5382,7 +5382,9 @@ function handleMPMessage(msg) {
   else if (t === 'joined') {
     mp.roomCode = msg.code;
     mp.myId = msg.id;
-    mp.isHost = false;
+    // Servers ≥ this build send hostId — the first joiner of a REVIVED room is
+    // promoted to host so the world keeps autosaving (older servers: not host).
+    mp.isHost = (msg.hostId !== undefined) ? (msg.hostId === msg.id) : false;
     gameStarted = true;
     // Apply world state
     if (msg.world) applyWorldState(msg.world, msg.seed);

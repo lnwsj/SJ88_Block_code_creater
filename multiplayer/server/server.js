@@ -327,7 +327,7 @@ const server = http.createServer((req, res) => {
     // Stale-while-revalidate: instant loads offline, self-updates online.
     // Bump CACHE when shipping a new game build so clients refresh.
     const sw = [
-      "const CACHE = 'minicraft-v4';",
+      "const CACHE = 'minicraft-v5';",
       "self.addEventListener('install', e => {",
       "  e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/', '/multiplayer.html', '/manifest.webmanifest'])));",
       "  self.skipWaiting();",
@@ -459,13 +459,21 @@ wss.on('connection', (ws) => {
       playerId = nextPlayerId++;
       playerName = String(msg.name || 'Guest').slice(0, 24);
       room.players.set(playerId, { ws, name: playerName, x: 0, y: 30, z: 0, yaw: 0, pitch: 0, hp: 20, color: msg.color || '#ff6b6b' });
+      // A revived room starts hostless — promote the first joiner so the world
+      // keeps autosaving; without a host, world_save is rejected and edits die
+      // with the room. (This is why revived worlds stopped persisting.)
+      const promotedHost = room.hostId == null;
+      if (promotedHost) room.hostId = playerId;
       room.lastActivity = Date.now();
       const playerList = [];
       for (const [id, p] of room.players) {
         playerList.push({ id, name: p.name, x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, hp: p.hp, color: p.color });
       }
-      send(ws, { type: 'joined', code: room.code, id: playerId, players: playerList,
+      send(ws, { type: 'joined', code: room.code, id: playerId, hostId: room.hostId, players: playerList,
         world: room.world ? worldPayload(room.world) : null, seed: room.world?.seed || null });
+      if (promotedHost) {
+        send(ws, { type: 'host_migrated', id: playerId, name: playerName });
+      }
       const newP = room.players.get(playerId);
       broadcastRoom(room, { type: 'player_joined', player: { id: playerId, name: newP.name, x: 0, y: 30, z: 0, yaw: 0, pitch: 0, hp: 20, color: newP.color } }, playerId);
       console.log(`[${room.code}] ${newP.name} joined as #${playerId} (${room.players.size} total)`);
