@@ -2,7 +2,7 @@
 // WEBGL SETUP
 // ======================================================================
 const canvas = document.getElementById('c');
-const gl = canvas.getContext('webgl', { antialias: false, alpha: false });
+const gl = canvas.getContext('webgl', { antialias: true, alpha: false });
 
 if (!gl) {
   alert('เบราว์เซอร์ไม่รองรับ WebGL — ลอง Chrome / Firefox / Edge เวอร์ชันใหม่');
@@ -24,17 +24,20 @@ const VS_SRC = `
 attribute vec3 aPos;
 attribute vec3 aNormal;
 attribute vec2 aUV;
+attribute float aAO;
 uniform mat4 uMVP;
 uniform mat4 uModel;
 varying vec3 vNormal;
 varying vec2 vUV;
 varying float vDist;
+varying float vAO;
 void main() {
   vec4 wp = uModel * vec4(aPos, 1.0);
   vDist = length(wp.xyz);
   gl_Position = uMVP * vec4(aPos, 1.0);
   vNormal = aNormal;
   vUV = aUV;
+  vAO = aAO;
 }`;
 
 const FS_SRC = `
@@ -43,12 +46,14 @@ uniform sampler2D uAtlas;
 varying vec3 vNormal;
 varying vec2 vUV;
 varying float vDist;
+varying float vAO;
 uniform vec3 uSunDir;
 uniform vec3 uFogColor;
 uniform float uFogStart;
 uniform float uFogEnd;
 uniform float uTime;
 uniform float uAmbient;
+uniform float uAlpha;
 void main() {
   vec4 c = texture2D(uAtlas, vUV);
   if (c.a < 0.05) discard;
@@ -58,10 +63,10 @@ void main() {
   float ambient = uAmbient;
   float skyAmb = (n.y * 0.5 + 0.5) * 0.15;
   float light = ambient + skyAmb + 0.55 * diff;
-  vec3 col = c.rgb * light;
+  vec3 col = c.rgb * light * vAO;
   float fogF = clamp((vDist - uFogStart) / (uFogEnd - uFogStart), 0.0, 1.0);
   col = mix(col, uFogColor, fogF);
-  gl_FragColor = vec4(col, c.a);
+  gl_FragColor = vec4(col, c.a * uAlpha);
 }`;
 
 const vs = compileShader(gl.VERTEX_SHADER, VS_SRC);
@@ -79,6 +84,7 @@ gl.useProgram(prog);
 const aPos = gl.getAttribLocation(prog, 'aPos');
 const aNormal = gl.getAttribLocation(prog, 'aNormal');
 const aUV = gl.getAttribLocation(prog, 'aUV');
+const aAO = gl.getAttribLocation(prog, 'aAO');
 const uMVP = gl.getUniformLocation(prog, 'uMVP');
 const uModel = gl.getUniformLocation(prog, 'uModel');
 const uAtlas = gl.getUniformLocation(prog, 'uAtlas');
@@ -87,6 +93,7 @@ const uFogColor = gl.getUniformLocation(prog, 'uFogColor');
 const uFogStart = gl.getUniformLocation(prog, 'uFogStart');
 const uFogEnd = gl.getUniformLocation(prog, 'uFogEnd');
 const uAmbient = gl.getUniformLocation(prog, 'uAmbient');
+const uAlpha = gl.getUniformLocation(prog, 'uAlpha');
 
 // Per-chunk GPU buffers: created once, refilled in place on rebuild
 // (the old ensureBuffers() allocated fresh buffers on growth and never freed them)
@@ -98,19 +105,21 @@ function bindFill(buf, arr, ArrayType, target) {
 function uploadChunk(ch) {
   if (!ch.buf) {
     ch.buf = {
-      pos: gl.createBuffer(), norm: gl.createBuffer(), uv: gl.createBuffer(), idx: gl.createBuffer(),
-      tPos: gl.createBuffer(), tNorm: gl.createBuffer(), tUv: gl.createBuffer(), tIdx: gl.createBuffer(),
+      pos: gl.createBuffer(), norm: gl.createBuffer(), uv: gl.createBuffer(), ao: gl.createBuffer(), idx: gl.createBuffer(),
+      tPos: gl.createBuffer(), tNorm: gl.createBuffer(), tUv: gl.createBuffer(), tAo: gl.createBuffer(), tIdx: gl.createBuffer(),
     };
   }
   const b = ch.buf;
   bindFill(b.pos, ch.opaque.positions, Float32Array, gl.ARRAY_BUFFER);
   bindFill(b.norm, ch.opaque.normals, Float32Array, gl.ARRAY_BUFFER);
   bindFill(b.uv, ch.opaque.uvs, Float32Array, gl.ARRAY_BUFFER);
+  bindFill(b.ao, ch.opaque.ao, Float32Array, gl.ARRAY_BUFFER);
   bindFill(b.idx, ch.opaque.indices, Uint16Array, gl.ELEMENT_ARRAY_BUFFER);
   b.iCount = ch.opaque.indices.length;
   bindFill(b.tPos, ch.transp.positions, Float32Array, gl.ARRAY_BUFFER);
   bindFill(b.tNorm, ch.transp.normals, Float32Array, gl.ARRAY_BUFFER);
   bindFill(b.tUv, ch.transp.uvs, Float32Array, gl.ARRAY_BUFFER);
+  bindFill(b.tAo, ch.transp.ao, Float32Array, gl.ARRAY_BUFFER);
   bindFill(b.tIdx, ch.transp.indices, Uint16Array, gl.ELEMENT_ARRAY_BUFFER);
   b.tCount = ch.transp.indices.length;
 }
@@ -151,8 +160,16 @@ function uploadAtlas(canvas) {
   atlasTex = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, atlasTex);
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  // WebGL1 mipmaps need power-of-two textures — the 8x5-tile atlas is not,
+  // so blit it onto a square POT canvas (uv mapping is unchanged).
+  const pot = document.createElement('canvas');
+  pot.width = pot.height = Math.max(2, 1 << Math.ceil(Math.log2(Math.max(canvas.width, canvas.height))));
+  const pctx = pot.getContext('2d');
+  pctx.drawImage(canvas, 0, 0);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, pot);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  // Crisp retro up close, mipmapped (no shimmer) in the distance
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -907,7 +924,7 @@ function render() {
 
   // Camera matrices
   const aspect = canvas.width / canvas.height;
-  const proj = mat4Perspective(Math.PI/3, aspect, 0.1, 500);
+  const proj = mat4Perspective(1.22, aspect, 0.1, 500); // ~70° fov
   // View matrix = inverse of (translate(player) * rotate(-pitch) * rotate(-yaw))
   const cy = Math.cos(player.yaw), sy = Math.sin(player.yaw);
   const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
@@ -955,6 +972,7 @@ function render() {
   // Ambient based on time of day (brighter during day)
   const ambient = isNight() ? 0.25 : 0.45;
   gl.uniform1f(uAmbient, ambient);
+  gl.uniform1f(uAlpha, 1.0);
 
   if (atlasTex) {
     gl.activeTexture(gl.TEXTURE0);
@@ -977,6 +995,9 @@ function render() {
     gl.bindBuffer(gl.ARRAY_BUFFER, b.uv);
     gl.enableVertexAttribArray(aUV);
     gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, b.ao);
+    gl.enableVertexAttribArray(aAO);
+    gl.vertexAttribPointer(aAO, 1, gl.FLOAT, false, 0, 0);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, b.idx);
     gl.drawElements(gl.TRIANGLES, b.iCount, gl.UNSIGNED_SHORT, 0);
     drawnChunks++;
@@ -999,11 +1020,81 @@ function render() {
     gl.bindBuffer(gl.ARRAY_BUFFER, b.tUv);
     gl.enableVertexAttribArray(aUV);
     gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, b.tAo);
+    gl.enableVertexAttribArray(aAO);
+    gl.vertexAttribPointer(aAO, 1, gl.FLOAT, false, 0, 0);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, b.tIdx);
     gl.drawElements(gl.TRIANGLES, b.tCount, gl.UNSIGNED_SHORT, 0);
   }
+  drawClouds(mvp);
   gl.depthMask(true);
   gl.disable(gl.BLEND);
+}
+
+// ---- Drifting cloud layer ------------------------------------------------
+// A one-time grid of translucent white quads high above the world; the whole
+// layer slides slowly via the model matrix (uTime), reusing the main shader
+// (lit, fogged) with uAlpha for translucency.
+let _cloudBuf = null, _cloudCount = 0;
+function buildClouds() {
+  const CLOUD_Y = 44, CELL = 8, R = 20; // cells from -R..R around the world
+  const positions = [], normals = [], uvs = [], ao = [], indices = [];
+  const tex = 11; // snow tile (near-white)
+  const u0 = (tex % CFG.ATLAS) / CFG.ATLAS, v0 = Math.floor(tex / CFG.ATLAS) / CFG.ATLAS_H;
+  const du = 1 / CFG.ATLAS, dv = 1 / CFG.ATLAS_H;
+  let vi = 0;
+  const hash = (i, j) => {
+    let h = (i * 374761393 + j * 668265263) | 0;
+    h = (h ^ (h >> 13)) * 1274126177 | 0;
+    return ((h ^ (h >> 16)) >>> 0) / 4294967295;
+  };
+  for (let i = -R; i <= R; i++) {
+    for (let j = -R; j <= R; j++) {
+      if (hash(i, j) > 0.42) continue;
+      const x = i * CELL, z = j * CELL;
+      // top + bottom faces so clouds read from above and below
+      for (const [ny, y0] of [[1, CLOUD_Y + 0.5], [-1, CLOUD_Y]]) {
+        const base = vi;
+        positions.push(x, y0, z, x + CELL, y0, z, x, y0, z + CELL, x + CELL, y0, z + CELL);
+        for (let k = 0; k < 4; k++) { normals.push(0, ny, 0); ao.push(1); }
+        uvs.push(u0, v0 + dv, u0 + du, v0 + dv, u0, v0, u0 + du, v0);
+        if (ny > 0) indices.push(base, base + 2, base + 1, base + 1, base + 2, base + 3);
+        else indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
+        vi += 4;
+      }
+    }
+  }
+  _cloudBuf = { pos: gl.createBuffer(), norm: gl.createBuffer(), uv: gl.createBuffer(), ao: gl.createBuffer(), idx: gl.createBuffer() };
+  bindFill(_cloudBuf.pos, positions, Float32Array, gl.ARRAY_BUFFER);
+  bindFill(_cloudBuf.norm, normals, Float32Array, gl.ARRAY_BUFFER);
+  bindFill(_cloudBuf.uv, uvs, Float32Array, gl.ARRAY_BUFFER);
+  bindFill(_cloudBuf.ao, ao, Float32Array, gl.ARRAY_BUFFER);
+  bindFill(_cloudBuf.idx, indices, Uint16Array, gl.ELEMENT_ARRAY_BUFFER);
+  _cloudCount = indices.length;
+}
+function drawClouds(mvp) {
+  if (!_cloudBuf) buildClouds();
+  if (!_cloudCount) return;
+  const drift = (gameTime * 0.0025) % 8; // slow slide, wraps per cloud cell
+  const model = mat4Translate(-160 + drift, 0, -drift * 0.4);
+  gl.uniformMatrix4fv(uMVP, false, mat4Mult(mvp, model));
+  gl.uniform1f(uAlpha, 0.55);
+  const b = _cloudBuf;
+  gl.bindBuffer(gl.ARRAY_BUFFER, b.pos);
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, b.norm);
+  gl.enableVertexAttribArray(aNormal);
+  gl.vertexAttribPointer(aNormal, 3, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, b.uv);
+  gl.enableVertexAttribArray(aUV);
+  gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, b.ao);
+  gl.enableVertexAttribArray(aAO);
+  gl.vertexAttribPointer(aAO, 1, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, b.idx);
+  gl.drawElements(gl.TRIANGLES, _cloudCount, gl.UNSIGNED_SHORT, 0);
+  gl.uniform1f(uAlpha, 1.0);
 }
 
 // ======================================================================

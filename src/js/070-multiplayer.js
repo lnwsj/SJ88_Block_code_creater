@@ -573,7 +573,7 @@ function drawPlayerName(name, wx, wy, wz) {
   const fnx = fx/flen, fny = fy/flen, fnz = fz/flen;
   // View matrix
   const view = mat4LookAt(ex, ey, ez, ex+fnx, ey+fny, ez+fnz, 0, 1, 0);
-  const proj = mat4Perspective(Math.PI/3, canvas.width/canvas.height, 0.1, 500);
+  const proj = mat4Perspective(1.22, canvas.width/canvas.height, 0.1, 500); // match camera fov
   const mvp = mat4Mult(proj, mat4Mult(view, mat4Translate(wx, wy, wz)));
   // Manually apply MVP to (0,0,0)
   const m = mvp;

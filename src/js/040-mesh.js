@@ -16,8 +16,8 @@ for (let cz = 0; cz < CHUNKS_Z; cz++) {
   for (let cx = 0; cx < CHUNKS_X; cx++) {
     chunks.push({
       cx, cz, dirty: true, faces: 0, buf: null,
-      opaque: { positions: [], normals: [], uvs: [], indices: [] },
-      transp: { positions: [], normals: [], uvs: [], indices: [] },
+      opaque: { positions: [], normals: [], uvs: [], indices: [], ao: [] },
+      transp: { positions: [], normals: [], uvs: [], indices: [], ao: [] },
     });
   }
 }
@@ -80,19 +80,52 @@ function addFace(target, bx, by, bz, face, blockType) {
     uvCoords = [[u0, v0+dv],[u0+du, v0+dv],[u0, v0],[u0+du, v0]];
   }
 
+  // ---- Per-vertex ambient occlusion (classic 0fps method) ----
+  // For each face vertex, sample the two edge-adjacent neighbors and the
+  // corner neighbor in the plane one step along the face normal.
+  // ao 3 = fully open, 0 = corner pinched by blocks on both sides.
+  const na = n[0] !== 0 ? 0 : (n[1] !== 0 ? 1 : 2); // normal axis
+  const ua = na === 0 ? 1 : 0;                      // first in-plane axis
+  const wa = na === 2 ? 1 : 2;                      // second in-plane axis
+  const occl = (x, y, z) => {
+    const b = getBlock(x, y, z);
+    return b !== B.AIR && !TRANSPARENT.has(b) && b !== B.DOOR ? 1 : 0;
+  };
+  const aoVals = new Array(4);
+  for (let i = 0; i < 4; i++) {
+    const v = verts[i];
+    const du = v[ua] === 1 ? 1 : -1;
+    const dw = v[wa] === 1 ? 1 : -1;
+    const base = [bx + n[0], by + n[1], bz + n[2]];
+    const s1 = [...base]; s1[ua] += du;
+    const s2 = [...base]; s2[wa] += dw;
+    const cn = [...base]; cn[ua] += du; cn[wa] += dw;
+    const o1 = occl(s1[0], s1[1], s1[2]);
+    const o2 = occl(s2[0], s2[1], s2[2]);
+    const oc = occl(cn[0], cn[1], cn[2]);
+    const ao = (o1 && o2) ? 0 : 3 - (o1 + o2 + oc);
+    aoVals[i] = 0.58 + 0.14 * ao; // 1.0 open … 0.58 pinched
+  }
+
   const baseIdx = target.positions.length / 3;
   for (let i = 0; i < 4; i++) {
     target.positions.push(bx + verts[i][0], by + verts[i][1], bz + verts[i][2]);
     target.normals.push(n[0], n[1], n[2]);
     target.uvs.push(uvCoords[i][0], uvCoords[i][1]);
+    if (target.ao) target.ao.push(aoVals[i]);
   }
-  target.indices.push(baseIdx, baseIdx+1, baseIdx+2, baseIdx+1, baseIdx+3, baseIdx+2);
+  // Flip the quad diagonal along the brighter pair to avoid AO gradient artifacts
+  if (aoVals[0] + aoVals[3] > aoVals[1] + aoVals[2]) {
+    target.indices.push(baseIdx, baseIdx+1, baseIdx+3, baseIdx, baseIdx+3, baseIdx+2);
+  } else {
+    target.indices.push(baseIdx, baseIdx+1, baseIdx+2, baseIdx+1, baseIdx+3, baseIdx+2);
+  }
 }
 
 function buildChunkMesh(ch) {
   const o = ch.opaque, t = ch.transp;
-  o.positions.length = o.normals.length = o.uvs.length = o.indices.length = 0;
-  t.positions.length = t.normals.length = t.uvs.length = t.indices.length = 0;
+  o.positions.length = o.normals.length = o.uvs.length = o.indices.length = o.ao.length = 0;
+  t.positions.length = t.normals.length = t.uvs.length = t.indices.length = t.ao.length = 0;
   let faces = 0;
   const x0 = ch.cx * CHUNK, z0 = ch.cz * CHUNK;
   for (let z = z0; z < z0 + CHUNK; z++) {

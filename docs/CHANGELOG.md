@@ -4,6 +4,19 @@
 
 ---
 
+## [Unreleased #5] — Graphics pass (12 ต.ค. 2026)
+
+> ตอบรายงานผู้เล่นจริง: "เกมส์ภาพไม่สวยเลย" — เทียบก่อน/หลังที่ `docs/screenshots/gfx-before.png` vs `gfx-after.png` (มุมเดียวกัน เวลาเดียวกัน)
+
+### Added/Changed (src/js/040-mesh, 050-render-input, 070, style.css, mid.html)
+- **Per-vertex Ambient Occlusion** (อัลกอริทึม 0fps คลาสสิก): มุมที่บล็อกเกาะกันมืดลงเหมือนแสงตกเงา — ยืนยันจริง 141,716 จุดยอด ค่า 0.58–1.0 + พลิกเส้นทแยงมุม (quad flip) กัน artifact ไล่เฉด
+- **เมฆลอย 2,830 แผ่น** ที่ระดับ 44 — ขาวโปร่งแสง ลอยผ่านช้าๆ ตามเวลาในเกม ใช้ shader หลัก (โดนแสง/หมอกเหมือนของจริง)
+- **Mipmap + กรองระยะไกล** — เดิม NEAREST ล้วนทำภาพไกลกระพริบเป็น noise; atlas ถูก pad เป็น power-of-two แล้ว generateMipmap (ใกล้ยังคมแบบ retro)
+- **Antialias เปิด** (เดิมปิด — ขอบบล็อกแหลมเป็นฟันเลื่อย) + **FOV 60°→70°** + **vignette** จางๆ ขอบจอ
+- SW cache bump v5 → **v6**
+
+---
+
 ## [Unreleased #4] — Revived rooms had no host (11 ต.ค. 2026)
 
 ### Fixed
